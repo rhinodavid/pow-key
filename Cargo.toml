@@ -1,0 +1,10 @@
+[package]
+name = "skeleton_key"
+version = "0.1.0"
+authors = ["David Walsh"]
+
+[dependencies]
+rust-crypto = "0.2.36"
+rustc-serialize = "0.3.24"
+byteorder = "1.2.7"
+bytes = "0.4.10"

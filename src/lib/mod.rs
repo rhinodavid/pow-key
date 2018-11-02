@@ -50,6 +50,12 @@ pub struct Sha256Hash {
     pub value: [u8; 32],
 }
 
+impl std::fmt::Display for Sha256Hash {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.value.to_hex())
+    }
+}
+
 impl Sha256Hash {
     pub fn from_hex_string(s: &String) -> Result<Sha256Hash, String> {
         if s.len() != 64 {

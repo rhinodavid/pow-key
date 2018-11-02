@@ -5,7 +5,8 @@ extern crate rustc_serialize as serialize;
 use lib::byteorder::{LittleEndian, WriteBytesExt};
 use lib::crypto::digest::Digest;
 use lib::crypto::sha2::Sha256;
-use lib::serialize::hex::ToHex;
+use lib::serialize::hex::{FromHex, ToHex};
+use std::result::Result::Err;
 
 // BASE: string
 // HASH: 32-bytes (SHA-256)
@@ -50,6 +51,21 @@ pub struct Sha256Hash {
 }
 
 impl Sha256Hash {
+    pub fn from_hex_string(s: &String) -> Result<Sha256Hash, String> {
+        if s.len() != 64 {
+            return Err("Input must be 64 characters".to_string());
+        }
+        let mut result: [u8; 32] = [0; 32];
+        match s.from_hex() {
+            Ok(r) => {
+                for (i, &v) in r.iter().enumerate() {
+                    result[i] = v;
+                }
+                Ok(Sha256Hash { value: result })
+            }
+            Err(e) => Err(format!("Serialization failed: {:?}", e)),
+        }
+    }
     pub fn to_hex(&self) -> String {
         format!("{}", self.value.to_hex())
     }
@@ -68,6 +84,28 @@ fn nonce_to_bytes(nonce: u32) -> [u8; 4] {
 mod tests {
     use Sha256Hash;
     use Sha256Hasher;
+    #[test]
+    fn it_creates_sha_hashes_from_hex() {
+        let hash = Sha256Hash::from_hex_string(
+            &"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".to_string(),
+        ).unwrap();
+        assert_eq!(
+            Sha256Hash {
+                value: [
+                    0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d,
+                    0xae, 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10,
+                    0xff, 0x61, 0xf2, 0x00, 0x15, 0xad,
+                ],
+            },
+            hash
+        );
+    }
+
+    #[test]
+    fn it_fails_to_create_hash_with_wrong_length() {
+        assert!(Sha256Hash::from_hex_string(&"aa00bb".to_string()).is_err());
+    }
+
     #[test]
     fn it_hashes_abc() {
         let hasher = Sha256Hasher::new(b"abc");

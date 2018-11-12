@@ -11,9 +11,18 @@ use std::time::Instant;
 
 // BASE: string
 // HASH: 32-bytes (SHA-256)
-// NONCE: 8-byte/32-bit (c unsigned int -- little endian) max: 4294967295
+// NONCE: 8-byte
 
-pub type Nonce = u32;
+pub type Nonce = u64;
+
+pub trait TNonce {
+    fn as_hex_bytes(&self) -> String;
+}
+impl TNonce for u64 {
+    fn as_hex_bytes(&self) -> String {
+        nonce_to_bytes(*self).to_hex()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Sha256Hasher {
@@ -129,15 +138,15 @@ impl HashWorkerFarm {
     pub fn new(base: Vec<u8>, target: Sha256Hash, num_workers: u8) -> HashWorkerFarm {
         let (response_sender, response_receiver) = channel();
         let mut workers = Vec::new();
-        let mut nonce_marker: u32 = 0;
-        let range_per_nonce = std::u32::MAX / num_workers as u32;
+        let mut nonce_marker: u64 = 0;
+        let range_per_nonce = std::u64::MAX / num_workers as u64;
         for i in 0..num_workers {
             let base_clone = base.clone();
             workers.push(HashWorker {
                 start_nonce: nonce_marker,
                 end_nonce: match i + 1 == num_workers {
-                    false => nonce_marker + range_per_nonce as u32,
-                    true => std::u32::MAX,
+                    false => nonce_marker + range_per_nonce as u64,
+                    true => std::u64::MAX,
                 },
                 target: target.clone(),
                 hasher: Sha256Hasher::new(base_clone),
@@ -151,7 +160,7 @@ impl HashWorkerFarm {
         }
     }
     pub fn solve(&self) -> Option<HashSolution> {
-        let mut attempt_count: u32 = 0;
+        let mut attempt_count: u64 = 0;
         let mut completed_workers: u8 = 0;
         let start_time = Instant::now();
 
@@ -182,7 +191,7 @@ impl HashWorkerFarm {
                 // print debug info
                 let elapsed = start_time.elapsed();
                 let hash_rate = attempt_count as f64 / elapsed.as_secs() as f64;
-                let percent_total = attempt_count as f64 / std::u32::MAX as f64 * 100.0;
+                let percent_total = attempt_count as f64 / std::u64::MAX as f64 * 100.0;
                 println!(
                     "{:.1}% through all possibilities; hashrate: {:.2}k/s",
                     percent_total,
@@ -194,11 +203,11 @@ impl HashWorkerFarm {
     }
 }
 
-fn nonce_to_bytes(nonce: Nonce) -> [u8; 4] {
-    let mut result = [0u8; 4];
+fn nonce_to_bytes(nonce: Nonce) -> [u8; 8] {
+    let mut result = [0u8; 8];
     result
         .as_mut()
-        .write_u32::<LittleEndian>(nonce)
+        .write_u64::<LittleEndian>(nonce)
         .expect("Unable to write");
     result
 }
@@ -251,7 +260,7 @@ mod tests {
     fn it_hashes_with_a_small_nonce() {
         let hasher = Sha256Hasher::new(b"helloworld".to_vec());
         let answer = Sha256Hash::from_hex_string(
-            &"1217928f624a1ef061f84a9c02f7ed2a6c7fdc92aa5fa8293b6184f3ebb4f5ec".to_string(),
+            &"c81ee5e927e9d7987e1ad7c92eb63ecb78d9a7a5949de5462f5f1d79d6b5d0d1".to_string(),
         ).unwrap();
         assert_eq!(answer, hasher.hash_with_nonce(0));
     }
@@ -260,7 +269,7 @@ mod tests {
     fn it_hashes_with_a_large_nonce() {
         let hasher = Sha256Hasher::new(b"abc".to_vec());
         let answer = Sha256Hash::from_hex_string(
-            &"999cc85999f15f52eb1ee982f3701b6741304d9e2c3a80db79a91c62f18cc1e2".to_string(),
+            &"bd2154c71c7a42c66269709fc3508b587bbd61cce9c977fe0c9d313e7a47fb55".to_string(),
         ).unwrap();
         assert_eq!(answer, hasher.hash_with_nonce(4294967295));
     }

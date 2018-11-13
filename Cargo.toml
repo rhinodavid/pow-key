@@ -1,5 +1,5 @@
 [package]
-name = "skeleton_key"
+name = "pow_key"
 version = "0.1.0"
 authors = ["David Walsh"]
 

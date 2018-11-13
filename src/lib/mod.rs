@@ -6,6 +6,7 @@ use lib::byteorder::{LittleEndian, WriteBytesExt};
 use lib::crypto::digest::Digest;
 use lib::crypto::sha2::Sha256;
 use lib::serialize::hex::{FromHex, ToHex};
+use std::str::FromStr;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Instant;
 
@@ -66,8 +67,9 @@ impl std::fmt::Display for Sha256Hash {
     }
 }
 
-impl Sha256Hash {
-    pub fn from_hex_string(s: &String) -> Result<Sha256Hash, String> {
+impl FromStr for Sha256Hash {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() != 64 {
             return Err("Input must be 64 characters".to_string());
         }
@@ -216,9 +218,10 @@ fn nonce_to_bytes(nonce: Nonce) -> [u8; 8] {
 mod tests {
     use lib::Sha256Hash;
     use lib::Sha256Hasher;
+    use std::str::FromStr;
     #[test]
     fn it_creates_sha_hashes_from_hex() {
-        let hash = Sha256Hash::from_hex_string(
+        let hash = Sha256Hash::from_str(
             &"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".to_string(),
         ).unwrap();
         assert_eq!(
@@ -235,13 +238,13 @@ mod tests {
 
     #[test]
     fn it_fails_to_create_hash_with_wrong_length() {
-        assert!(Sha256Hash::from_hex_string(&"aa00bb".to_string()).is_err());
+        assert!(Sha256Hash::from_str(&"aa00bb".to_string()).is_err());
     }
 
     #[test]
     fn it_hashes_abc() {
         let hasher = Sha256Hasher::new(b"abc".to_vec());
-        let answer = Sha256Hash::from_hex_string(
+        let answer = Sha256Hash::from_str(
             &"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".to_string(),
         ).unwrap();
         assert_eq!(answer, hasher.hash());
@@ -250,7 +253,7 @@ mod tests {
     #[test]
     fn it_hashes_empty_string() {
         let hasher = Sha256Hasher::new(b"".to_vec());
-        let answer = Sha256Hash::from_hex_string(
+        let answer = Sha256Hash::from_str(
             &"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
         ).unwrap();
         assert_eq!(answer, hasher.hash());
@@ -259,7 +262,7 @@ mod tests {
     #[test]
     fn it_hashes_with_a_small_nonce() {
         let hasher = Sha256Hasher::new(b"helloworld".to_vec());
-        let answer = Sha256Hash::from_hex_string(
+        let answer = Sha256Hash::from_str(
             &"c81ee5e927e9d7987e1ad7c92eb63ecb78d9a7a5949de5462f5f1d79d6b5d0d1".to_string(),
         ).unwrap();
         assert_eq!(answer, hasher.hash_with_nonce(0));
@@ -268,7 +271,7 @@ mod tests {
     #[test]
     fn it_hashes_with_a_large_nonce() {
         let hasher = Sha256Hasher::new(b"abc".to_vec());
-        let answer = Sha256Hash::from_hex_string(
+        let answer = Sha256Hash::from_str(
             &"bd2154c71c7a42c66269709fc3508b587bbd61cce9c977fe0c9d313e7a47fb55".to_string(),
         ).unwrap();
         assert_eq!(answer, hasher.hash_with_nonce(4294967295));

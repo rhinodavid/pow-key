@@ -2,12 +2,13 @@ mod lib;
 use lib::HashWorkerFarm;
 use lib::Sha256Hash;
 use lib::TNonce;
+use std::str::FromStr;
 use std::time::Instant;
 
 fn main() {
     let start_time = Instant::now();
     let base = b"eGpV8IE242jaOAKoCjahM7qybxMfPSo7".to_vec();
-    let target_hash = Sha256Hash::from_hex_string(
+    let target_hash = Sha256Hash::from_str(
         &"00ffffff00000000000000000000000000000000000000000000000000000000".to_string(),
     ).expect("Invalid 256 bit hex");
     let hash_farm = HashWorkerFarm::new(base, target_hash.clone(), /* num workers */ 4);

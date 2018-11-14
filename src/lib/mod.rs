@@ -35,10 +35,6 @@ impl Sha256Hasher {
         Sha256Hasher { base: base }
     }
 
-    pub fn hash(&self) -> Sha256Hash {
-        Sha256Hasher::hash_impl(&self.base)
-    }
-
     fn hash_impl(base: &[u8]) -> Sha256Hash {
         let mut sha = Sha256::new();
         sha.input(base);
@@ -247,7 +243,7 @@ mod tests {
         let answer = Sha256Hash::from_str(
             &"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".to_string(),
         ).unwrap();
-        assert_eq!(answer, hasher.hash());
+        assert_eq!(answer, Sha256Hasher::hash_impl(&hasher.base));
     }
 
     #[test]
@@ -256,7 +252,7 @@ mod tests {
         let answer = Sha256Hash::from_str(
             &"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
         ).unwrap();
-        assert_eq!(answer, hasher.hash());
+        assert_eq!(answer, Sha256Hasher::hash_impl(&hasher.base));
     }
 
     #[test]

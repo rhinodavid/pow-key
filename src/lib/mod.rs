@@ -85,7 +85,7 @@ impl FromStr for Sha256Hash {
 }
 
 impl Sha256Hash {
-    fn get_difficulty(&self) -> u32 {
+    fn get_difficulty(&self) -> u64 {
         let difficulty_1_target = U256::from_str(
             &"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
         ).unwrap();
@@ -94,7 +94,7 @@ impl Sha256Hash {
 
         let difficulty = difficulty_1_target / self_as_bigint;
 
-        difficulty.as_u32()
+        difficulty.as_u64()
     }
 }
 
@@ -227,7 +227,7 @@ fn nonce_to_bytes(nonce: Nonce) -> [u8; 8] {
     result
 }
 
-fn expected_hashes_for_difficulty(difficulty: u32) -> u128 {
+fn expected_hashes_for_difficulty(difficulty: u64) -> u128 {
     difficulty as u128 * 2_u128.pow(32)
 }
 

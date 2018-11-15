@@ -1,7 +1,9 @@
 extern crate byteorder;
 extern crate crypto;
 extern crate rustc_serialize as serialize;
+extern crate uint;
 
+use uint::U256;
 use lib::byteorder::{LittleEndian, WriteBytesExt};
 use lib::crypto::digest::Digest;
 use lib::crypto::sha2::Sha256;
@@ -82,6 +84,20 @@ impl FromStr for Sha256Hash {
     }
 }
 
+impl Sha256Hash {
+    fn get_difficulty(&self) -> u32 {
+        let difficulty_1_target = U256::from_str(
+            &"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
+        ).unwrap();
+
+        let self_as_bigint = U256::from(self.value);
+
+        let difficulty = difficulty_1_target / self_as_bigint;
+
+        difficulty.as_u32()
+    }
+}
+
 pub struct HashSolution {
     pub nonce: Nonce,
     pub hash: Sha256Hash,
@@ -106,7 +122,8 @@ impl HashWorker {
                     .send(HashResponse::Success(HashSolution {
                         hash: hash_result,
                         nonce: n,
-                    })).unwrap_or_else(|_| return);
+                    }))
+                    .unwrap_or_else(|_| return);
                 return;
             } else {
                 self.out_handle
@@ -271,5 +288,14 @@ mod tests {
             &"bd2154c71c7a42c66269709fc3508b587bbd61cce9c977fe0c9d313e7a47fb55".to_string(),
         ).unwrap();
         assert_eq!(answer, hasher.hash_with_nonce(4294967295));
+    }
+
+    #[test]
+    fn it_computes_its_difficulty() {
+        // see https://en.bitcoin.it/wiki/Difficulty
+        let target = Sha256Hash::from_str(
+            &"00000000000404cb000000000000000000000000000000000000000000000000".to_string(),
+        ).unwrap();
+        assert_eq!(16307, target.get_difficulty());
     }
 }

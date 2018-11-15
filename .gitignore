@@ -1,3 +1,10 @@
-/target
-**/*.rs.bk
+._*
+.DS_Store
+.DS_Store?
+.Spotlight-V100
+.Trashes
 .vscode/*
+**/*.rs.bk
+/target
+ehthumbs.db
+Thumbs.db

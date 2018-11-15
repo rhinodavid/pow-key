@@ -3,7 +3,7 @@ extern crate crypto;
 extern crate rustc_serialize as serialize;
 extern crate uint;
 
-use uint::U256;
+use lib::uint::U256;
 use lib::byteorder::{LittleEndian, WriteBytesExt};
 use lib::crypto::digest::Digest;
 use lib::crypto::sha2::Sha256;
@@ -227,11 +227,16 @@ fn nonce_to_bytes(nonce: Nonce) -> [u8; 8] {
     result
 }
 
+fn expected_hashes_for_difficulty(difficulty: u32) -> u128 {
+    difficulty as u128 * 2_u128.pow(32)
+}
+
 #[cfg(test)]
 mod tests {
     use lib::Sha256Hash;
     use lib::Sha256Hasher;
     use std::str::FromStr;
+    use lib::expected_hashes_for_difficulty;
     #[test]
     fn it_creates_sha_hashes_from_hex() {
         let hash = Sha256Hash::from_str(
@@ -297,5 +302,10 @@ mod tests {
             &"00000000000404cb000000000000000000000000000000000000000000000000".to_string(),
         ).unwrap();
         assert_eq!(16307, target.get_difficulty());
+    }
+    #[test]
+    fn it_computes_expected_hashes_for_difficulty() {
+        let difficulty = 10;
+        assert_eq!(42_949_672_960, expected_hashes_for_difficulty(difficulty));
     }
 }

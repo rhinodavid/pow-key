@@ -85,6 +85,16 @@ impl FromStr for Sha256Hash {
 }
 
 impl Sha256Hash {
+    fn target_for_difficulty(difficulty: u64) -> Self {
+        let difficulty_1_target = U256::from_str(
+            &"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
+        ).unwrap();
+        let target_u256 = difficulty_1_target / U256::from(difficulty);
+        let mut result: [u8; 32] = [0; 32];
+        target_u256.to_big_endian(&mut result);
+        Sha256Hash { value: result }
+    }
+
     fn get_difficulty(&self) -> u64 {
         let difficulty_1_target = U256::from_str(
             &"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
@@ -260,6 +270,14 @@ mod tests {
     }
 
     #[test]
+    fn it_creates_hash_for_difficulty() {
+        let difficulty_1_target = Sha256Hash::from_str(
+            &"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
+        ).unwrap();
+        assert_eq!(difficulty_1_target, Sha256Hash::target_for_difficulty(1));
+    }
+
+    #[test]
     fn it_hashes_abc() {
         let hasher = Sha256Hasher::new(b"abc".to_vec());
         let answer = Sha256Hash::from_str(
@@ -303,6 +321,7 @@ mod tests {
         ).unwrap();
         assert_eq!(16307, target.get_difficulty());
     }
+
     #[test]
     fn it_computes_expected_hashes_for_difficulty() {
         let difficulty = 10;

@@ -241,12 +241,17 @@ fn expected_hashes_for_difficulty(difficulty: u64) -> u128 {
     difficulty as u128 * 2_u128.pow(32)
 }
 
+fn difficulty_for_expected_hashes(expected_hashes: u128) -> u64 {
+    (expected_hashes / 2_u128.pow(32)) as u64
+}
+
 #[cfg(test)]
 mod tests {
+    use lib::difficulty_for_expected_hashes;
+    use lib::expected_hashes_for_difficulty;
     use lib::Sha256Hash;
     use lib::Sha256Hasher;
     use std::str::FromStr;
-    use lib::expected_hashes_for_difficulty;
     #[test]
     fn it_creates_sha_hashes_from_hex() {
         let hash = Sha256Hash::from_str(
@@ -326,5 +331,16 @@ mod tests {
     fn it_computes_expected_hashes_for_difficulty() {
         let difficulty = 10;
         assert_eq!(42_949_672_960, expected_hashes_for_difficulty(difficulty));
+    }
+
+    #[test]
+    fn it_computes_difficulty_for_expected_hashes() {
+        // see https://en.bitcoin.it/wiki/Difficulty
+        let expected_hashes: u128 = (23.85 * ((10_u128.pow(9) * 60 * 60) as f64)) as u128;
+        let difficulty = 20000;
+        // approximating
+        let approximate_error = (difficulty_for_expected_hashes(expected_hashes) as i64
+            - difficulty as i64) as f64 / difficulty as f64;
+        assert!(approximate_error.abs() < 0.1);
     }
 }

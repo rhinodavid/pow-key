@@ -1,15 +1,17 @@
 extern crate byteorder;
 extern crate crypto;
+extern crate humantime;
 extern crate rustc_serialize as serialize;
 extern crate uint;
 
-use lib::uint::U256;
 use lib::byteorder::{LittleEndian, WriteBytesExt};
 use lib::crypto::digest::Digest;
 use lib::crypto::sha2::Sha256;
 use lib::serialize::hex::{FromHex, ToHex};
+use lib::uint::U256;
 use std::str::FromStr;
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::time::Duration;
 use std::time::Instant;
 
 // BASE: string
@@ -85,26 +87,22 @@ impl FromStr for Sha256Hash {
 }
 
 impl Sha256Hash {
-    fn target_for_difficulty(difficulty: u64) -> Self {
-        let difficulty_1_target = U256::from_str(
-            &"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
+    fn target_for_hash_attempts_expected(hash_attempts_expected: u64) -> Self {
+        // see discussion on geometic distribution here:
+        // https://en.wikipedia.org/wiki/Geometric_distribution
+        let max_attempts = U256::from_str(
+            &"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
         ).unwrap();
-        let target_u256 = difficulty_1_target / U256::from(difficulty);
+        let target_u256 = max_attempts / U256::from(hash_attempts_expected);
         let mut result: [u8; 32] = [0; 32];
         target_u256.to_big_endian(&mut result);
         Sha256Hash { value: result }
     }
 
-    fn get_difficulty(&self) -> u64 {
-        let difficulty_1_target = U256::from_str(
-            &"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
-        ).unwrap();
-
-        let self_as_bigint = U256::from(self.value);
-
-        let difficulty = difficulty_1_target / self_as_bigint;
-
-        difficulty.as_u64()
+    fn target_for_duration(duration: String, hash_rate: u64 /* hashes/s */) -> Self {
+        let d: Duration = duration.parse::<humantime::Duration>().unwrap().into();
+        let expected_hashes: u64 = d.as_secs() as u64 * hash_rate;
+        Sha256Hash::target_for_hash_attempts_expected(expected_hashes)
     }
 }
 
@@ -132,8 +130,7 @@ impl HashWorker {
                     .send(HashResponse::Success(HashSolution {
                         hash: hash_result,
                         nonce: n,
-                    }))
-                    .unwrap_or_else(|_| return);
+                    })).unwrap_or_else(|_| return);
                 return;
             } else {
                 self.out_handle
@@ -237,18 +234,8 @@ fn nonce_to_bytes(nonce: Nonce) -> [u8; 8] {
     result
 }
 
-fn expected_hashes_for_difficulty(difficulty: u64) -> u128 {
-    difficulty as u128 * 2_u128.pow(32)
-}
-
-fn difficulty_for_expected_hashes(expected_hashes: u128) -> u64 {
-    (expected_hashes / 2_u128.pow(32)) as u64
-}
-
 #[cfg(test)]
 mod tests {
-    use lib::difficulty_for_expected_hashes;
-    use lib::expected_hashes_for_difficulty;
     use lib::Sha256Hash;
     use lib::Sha256Hasher;
     use std::str::FromStr;
@@ -272,14 +259,6 @@ mod tests {
     #[test]
     fn it_fails_to_create_hash_with_wrong_length() {
         assert!(Sha256Hash::from_str(&"aa00bb".to_string()).is_err());
-    }
-
-    #[test]
-    fn it_creates_hash_for_difficulty() {
-        let difficulty_1_target = Sha256Hash::from_str(
-            &"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
-        ).unwrap();
-        assert_eq!(difficulty_1_target, Sha256Hash::target_for_difficulty(1));
     }
 
     #[test]
@@ -319,28 +298,28 @@ mod tests {
     }
 
     #[test]
-    fn it_computes_its_difficulty() {
-        // see https://en.bitcoin.it/wiki/Difficulty
-        let target = Sha256Hash::from_str(
-            &"00000000000404cb000000000000000000000000000000000000000000000000".to_string(),
+    fn it_computes_hash_targets_for_expected_attempts() {
+        let answer = Sha256Hash::from_str(
+            &"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
         ).unwrap();
-        assert_eq!(16307, target.get_difficulty());
+        assert_eq!(answer, Sha256Hash::target_for_hash_attempts_expected(1));
+
+        assert!(
+            Sha256Hash::target_for_hash_attempts_expected(1)
+                > Sha256Hash::target_for_hash_attempts_expected(2)
+        );
+
+        assert!(
+            Sha256Hash::target_for_hash_attempts_expected(10)
+                > Sha256Hash::target_for_hash_attempts_expected(100)
+        );
     }
 
     #[test]
-    fn it_computes_expected_hashes_for_difficulty() {
-        let difficulty = 10;
-        assert_eq!(42_949_672_960, expected_hashes_for_difficulty(difficulty));
-    }
-
-    #[test]
-    fn it_computes_difficulty_for_expected_hashes() {
-        // see https://en.bitcoin.it/wiki/Difficulty
-        let expected_hashes: u128 = (23.85 * ((10_u128.pow(9) * 60 * 60) as f64)) as u128;
-        let difficulty = 20000;
-        // approximating
-        let approximate_error = (difficulty_for_expected_hashes(expected_hashes) as i64
-            - difficulty as i64) as f64 / difficulty as f64;
-        assert!(approximate_error.abs() < 0.1);
+    fn it_computes_hash_targets_for_expected_duration() {
+        assert_eq!(
+            Sha256Hash::target_for_hash_attempts_expected(100),
+            Sha256Hash::target_for_duration("10s".to_string(), 10) // 10 h/s for 10s = 100 hashes
+        );
     }
 }

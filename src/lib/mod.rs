@@ -99,7 +99,7 @@ impl Sha256Hash {
         Sha256Hash { value: result }
     }
 
-    fn target_for_duration(duration: String, hash_rate: u64 /* hashes/s */) -> Self {
+    pub fn target_for_duration(duration: String, hash_rate: u64 /* hashes/s */) -> Self {
         let d: Duration = duration.parse::<humantime::Duration>().unwrap().into();
         let expected_hashes: u64 = d.as_secs() as u64 * hash_rate;
         Sha256Hash::target_for_hash_attempts_expected(expected_hashes)

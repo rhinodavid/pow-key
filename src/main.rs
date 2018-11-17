@@ -36,32 +36,61 @@ fn main() {
                     .long("numprocesses")
                     .help("the number of worker processes to generate")
                     .takes_value(true)
-                    .default_value("1")),
+                    .default_value("1")))
+        .subcommand(
+            SubCommand::with_name("maketarget")
+                .about("generates a target hash given an amount of time to solve it and a hash rate")                .arg(
+                Arg::with_name("duration")
+                    .short("d")
+                    .long("duration")
+                    .help("a plain text description of how long it should take to solve, ex: 4hr 25min")
+                    .takes_value(true)
+                    .required(true))
+                .arg(
+                    Arg::with_name("hashrate")
+                        .short("r")
+                        .long("hashrate")
+                        .help("the hashrate in hashes per second")
+                        .takes_value(true)
+                        .required(true))
         ).get_matches();
 
-    if let Some(matches) = matches.subcommand_matches("solve") {
-        let base_string = matches
-            .value_of("base string")
-            .expect("Expected a base string");
-        let base = base_string.as_bytes().to_vec();
-        let target_hash =
-            value_t!(matches, "target hash", Sha256Hash).expect("Invalid 256 bit hex");
-        let num_workers = value_t!(matches, "number of processes", u8)
-            .expect("Invalid number of worker processes");
-        let hash_farm = HashWorkerFarm::new(base, target_hash.clone(), num_workers);
-        let start_time = Instant::now();
-        let result = hash_farm.solve();
-        match result {
-            Some(result) => println!(
-                "Base string: {},\nSolved with nonce: {},\nAs bytes: {},\nHash: {}\nTarget: {}\nTime (s): {}",
-                base_string,
-                result.nonce,
-                result.nonce.as_hex_bytes(),
-                result.hash,
-                target_hash,
-                start_time.elapsed().as_secs()
-            ),
-            None => println!("No solution found"),
+    match matches.subcommand() {
+        ("solve", Some(solve_matches)) => {
+            let base_string = solve_matches
+                .value_of("base string")
+                .expect("Expected a base string");
+            let base = base_string.as_bytes().to_vec();
+            let target_hash =
+                value_t!(solve_matches, "target hash", Sha256Hash).expect("Invalid 256 bit hex");
+            let num_workers = value_t!(solve_matches, "number of processes", u8)
+                .expect("Invalid number of worker processes");
+            let hash_farm = HashWorkerFarm::new(base, target_hash.clone(), num_workers);
+            let start_time = Instant::now();
+            let result = hash_farm.solve();
+            match result {
+                Some(result) => println!(
+                    "Base string: {},\nSolved with nonce: {},\nAs bytes: {},\nHash: {}\nTarget: {}\nTime (s): {}",
+                    base_string,
+                    result.nonce,
+                    result.nonce.as_hex_bytes(),
+                    result.hash,
+                    target_hash,
+                    start_time.elapsed().as_secs()
+                ),
+                None => println!("No solution found"),
+            }
         }
+        ("maketarget", Some(maketarget_matches)) => {
+            let duration_string = maketarget_matches
+                .value_of("duration")
+                .expect("Expected a valid duration string");
+            let hash_rate = value_t!(maketarget_matches, "hashrate", u64)
+                .expect("Expected a valid integer hashrate");
+            let result = Sha256Hash::target_for_duration(duration_string.to_string(), hash_rate);
+            println!("{}", result);
+        }
+        ("", None) => println!("No subcommand was used, try \"help\""),
+        _ => unreachable!(), // Assuming you've listed all direct children above, this is unreachable
     }
 }

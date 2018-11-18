@@ -155,7 +155,7 @@ impl PowServer {
                     hash[i] = v;
                 }
             }
-            Err(e) => {
+            Err(_) => {
                 println!("Serialization failed for target: {}", target);
                 return Err(PowLockError::Unknown);
             }

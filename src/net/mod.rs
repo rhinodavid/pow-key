@@ -45,6 +45,28 @@ impl PowServer {
         Err(PowLockError::Unknown)
     }
 
+    pub fn get_status(&mut self) -> Result<String, PowLockError> {
+        let _ = try!(
+            self.stream
+                .write(b"s\n")
+                .map_err(|_| PowLockError::Connection)
+        );
+        let mut reader = BufReader::new(&self.stream);
+        let mut response = String::new();
+        try!(
+            reader
+                .read_line(&mut response)
+                .map_err(|_| PowLockError::Unknown)
+        );
+        if response.starts_with("1") {
+            return Ok("Locked".to_string());
+        }
+        if response.starts_with("0") {
+            return Ok("Unlocked".to_string());
+        }
+        Err(PowLockError::Unknown)
+    }
+
     pub fn get_base(&mut self) -> Result<String, PowLockError> {
         let _ = try!(
             self.stream

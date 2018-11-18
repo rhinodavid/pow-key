@@ -91,6 +91,19 @@ fn main() {
                             .takes_value(true)
                             .required(true)))
                 .subcommand(
+                    SubCommand::with_name("status")
+                        .about("gets the status (unlocked or locked) of a device")
+                        .arg(Arg::with_name("hostname")
+                            .short("h")
+                            .long("hostname")
+                            .takes_value(true)
+                            .required(true))
+                        .arg(Arg::with_name("port")
+                            .short("p")
+                            .long("port")
+                            .takes_value(true)
+                            .required(true)))
+                .subcommand(
                     SubCommand::with_name("base")
                         .about("gets the base string of a lock that is locked")
                         .arg(Arg::with_name("hostname")
@@ -184,8 +197,20 @@ fn main() {
             );
             println!("{}", test_hash_farm.run_test(length));
         }
-        ("lock", Some(lock_matches)) => {
+        ("device", Some(lock_matches)) => {
             match lock_matches.subcommand() {
+                ("status", Some(status_matches)) => {
+                    let host = value_t!(status_matches, "hostname", String).expect("Invalid host");
+                    let port = value_t!(status_matches, "port", String).expect("Invalid port");
+                    let mut server = PowServer::new(host, port);
+                    match server.get_status() {
+                        Ok(s) => println!("{}", s),
+                        Err(e) => match e {
+                            PowLockError::Connection => println!("Error connecting with lock"),
+                            _ => println!("Unknown error"),
+                        },
+                    }
+                }
                 ("open", Some(open_matches)) => {
                     let host = value_t!(open_matches, "hostname", String).expect("Invalid host");
                     let port = value_t!(open_matches, "port", String).expect("Invalid port");

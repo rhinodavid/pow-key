@@ -295,7 +295,7 @@ impl HashWorkerFarm {
     }
 }
 
-fn nonce_to_bytes(nonce: Nonce) -> [u8; 8] {
+pub fn nonce_to_bytes(nonce: Nonce) -> [u8; 8] {
     let mut result = [0u8; 8];
     result
         .as_mut()

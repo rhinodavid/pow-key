@@ -1,6 +1,7 @@
 extern crate rustc_serialize as serialize;
 
-use self::serialize::hex::FromHex;
+use super::hash::TNonce;
+use net::serialize::hex::FromHex;
 use std::io::prelude::*;
 use std::io::{BufRead, BufReader};
 use std::net::TcpStream;
@@ -8,6 +9,7 @@ use std::net::TcpStream;
 pub enum PowLockError {
     InvalidOperationWhenLocked,
     InvalidOperationWhenUnlocked,
+    Unsuccessful,
     Connection,
     Unknown,
 }
@@ -41,6 +43,39 @@ impl PowServer {
         }
         if response.starts_with("1") {
             return Ok(());
+        }
+        Err(PowLockError::Unknown)
+    }
+
+    // attempts to unlock a lock with a u64 nonce
+    pub fn unlock(&mut self, nonce: u64) -> Result<(), PowLockError> {
+        let nonce_bytes = nonce.as_hex_bytes();
+        let mut message = vec![];
+
+        message.extend(b"u");
+        message.extend(nonce_bytes.as_bytes());
+        message.extend(b"\n");
+
+        let _ = try!(
+            self.stream
+                .write(&message)
+                .map_err(|_| PowLockError::Connection)
+        );
+
+        let mut reader = BufReader::new(&self.stream);
+        let mut response = String::new();
+
+        try!(
+            reader
+                .read_line(&mut response)
+                .map_err(|_| PowLockError::Unknown)
+        );
+
+        if response.starts_with("1") {
+            return Ok(());
+        }
+        if response.starts_with("0") {
+            return Err(PowLockError::Unsuccessful);
         }
         Err(PowLockError::Unknown)
     }

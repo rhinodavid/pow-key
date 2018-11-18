@@ -147,6 +147,24 @@ fn main() {
                             .long("target")
                             .takes_value(true)
                             .required(true)))
+                .subcommand(
+                    SubCommand::with_name("unlock")
+                        .about("attempts to unlock a device given a u64 integer nonce")
+                        .arg(Arg::with_name("hostname")
+                            .short("h")
+                            .long("hostname")
+                            .takes_value(true)
+                            .required(true))
+                        .arg(Arg::with_name("port")
+                            .short("p")
+                            .long("port")
+                            .takes_value(true)
+                            .required(true))
+                        .arg(Arg::with_name("nonce")
+                            .short("n")
+                            .long("nonce")
+                            .takes_value(true)
+                            .required(true)))
             )
         .get_matches();
 
@@ -207,6 +225,24 @@ fn main() {
                         Ok(s) => println!("{}", s),
                         Err(e) => match e {
                             PowLockError::Connection => println!("Error connecting with lock"),
+                            _ => println!("Unknown error"),
+                        },
+                    }
+                }
+                ("unlock", Some(unlock_matches)) => {
+                    let host = value_t!(unlock_matches, "hostname", String).expect("Invalid host");
+                    let port = value_t!(unlock_matches, "port", String).expect("Invalid port");
+                    let nonce = value_t!(unlock_matches, "nonce", u64).expect("Invalid nonce");
+                    println!("nonce: {}", nonce);
+                    hash::nonce_to_bytes(nonce);
+
+                    let mut server = PowServer::new(host, port);
+                    match server.unlock(nonce) {
+                        Ok(()) => println!("Unlocked"),
+                        Err(e) => match e {
+                            PowLockError::Unsuccessful => println!(
+                                "Unsuccessful. Hash of base and nonce not less than target."
+                            ),
                             _ => println!("Unknown error"),
                         },
                     }

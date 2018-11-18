@@ -208,6 +208,10 @@ fn main() {
                 .expect("Invalid number of worker processes");
             let length =
                 value_t!(hashrate_test_matches, "length", u64).expect("Invalid test time length");
+            if length < 20 {
+                println!("Run the hashrate test for at least 20 seconds");
+                return;
+            }
             let test_hash_farm = HashWorkerFarm::new_test(num_workers);
             println!(
                 "Running test for {} seconds with {} processes",

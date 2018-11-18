@@ -1,12 +1,16 @@
 #[macro_use]
 extern crate clap;
 
-mod lib;
+mod hash;
+mod net;
+
 use clap::{App, Arg, SubCommand};
-use lib::HashWorkerFarm;
-use lib::Sha256Hash;
-use lib::TNonce;
+use hash::HashWorkerFarm;
+use hash::Sha256Hash;
+use hash::TNonce;
 use std::time::Instant;
+
+use net::{PowLockError, PowServer};
 
 fn main() {
     let matches = App::new("POW Key")
@@ -70,6 +74,22 @@ fn main() {
                     .help("the number of worker processes to generate")
                     .takes_value(true)
                     .default_value("1")))
+            .subcommand(SubCommand::with_name("lock")
+                .about("interacts with a POW lock over the network")
+                .setting(clap::AppSettings::SubcommandRequiredElseHelp)
+                .subcommand(
+                    SubCommand::with_name("open")
+                        .about("opens an unlocked lock")
+                        .arg(Arg::with_name("hostname")
+                            .short("h")
+                            .long("hostname")
+                            .takes_value(true)
+                            .required(true))
+                        .arg(Arg::with_name("port")
+                            .short("p")
+                            .long("port")
+                            .takes_value(true)
+                            .required(true))))
         .get_matches();
 
     match matches.subcommand() {
@@ -118,6 +138,26 @@ fn main() {
                 length, num_workers
             );
             println!("{}", test_hash_farm.run_test(length));
+        }
+        ("lock", Some(lock_matches)) => {
+            match lock_matches.subcommand() {
+                ("open", Some(open_matches)) => {
+                    let host = value_t!(open_matches, "hostname", String).expect("Invalid host");
+                    let port = value_t!(open_matches, "port", String).expect("Invalid port");
+                    let mut server = PowServer::new(host, port);
+                    match server.open() {
+                        Ok(_) => println!("Lock opened"),
+                        Err(e) => match e {
+                            PowLockError::InvalidOperationWhenLocked => {
+                                println!("Lock is locked; cannot open")
+                            }
+                            _ => println!("Unknown error"),
+                        },
+                    }
+                }
+                ("", None) => println!("No subcommand was used, try \"help\""),
+                _ => unreachable!(), // Assuming you've listed all direct children above, this is unreachable
+            }
         }
         ("", None) => println!("No subcommand was used, try \"help\""),
         _ => unreachable!(), // Assuming you've listed all direct children above, this is unreachable

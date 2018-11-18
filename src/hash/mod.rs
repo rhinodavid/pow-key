@@ -4,11 +4,11 @@ extern crate humantime;
 extern crate rustc_serialize as serialize;
 extern crate uint;
 
-use lib::byteorder::{LittleEndian, WriteBytesExt};
-use lib::crypto::digest::Digest;
-use lib::crypto::sha2::Sha256;
-use lib::serialize::hex::{FromHex, ToHex};
-use lib::uint::U256;
+use hash::byteorder::{LittleEndian, WriteBytesExt};
+use hash::crypto::digest::Digest;
+use hash::crypto::sha2::Sha256;
+use hash::serialize::hex::{FromHex, ToHex};
+use hash::uint::U256;
 use std::str::FromStr;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Duration;
@@ -291,7 +291,7 @@ impl HashWorkerFarm {
                 }
             }
         }
-        panic!("Reached end without of function without returning a valid hash rate");
+        unreachable!();
     }
 }
 
@@ -306,8 +306,8 @@ fn nonce_to_bytes(nonce: Nonce) -> [u8; 8] {
 
 #[cfg(test)]
 mod tests {
-    use lib::Sha256Hash;
-    use lib::Sha256Hasher;
+    use hash::Sha256Hash;
+    use hash::Sha256Hasher;
     use std::str::FromStr;
     #[test]
     fn it_creates_sha_hashes_from_hex() {

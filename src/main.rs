@@ -89,6 +89,19 @@ fn main() {
                             .short("p")
                             .long("port")
                             .takes_value(true)
+                            .required(true)))
+                .subcommand(
+                    SubCommand::with_name("base")
+                        .about("gets the base string of a lock that is locked")
+                        .arg(Arg::with_name("hostname")
+                            .short("h")
+                            .long("hostname")
+                            .takes_value(true)
+                            .required(true))
+                        .arg(Arg::with_name("port")
+                            .short("p")
+                            .long("port")
+                            .takes_value(true)
                             .required(true))))
         .get_matches();
 
@@ -150,6 +163,20 @@ fn main() {
                         Err(e) => match e {
                             PowLockError::InvalidOperationWhenLocked => {
                                 println!("Lock is locked; cannot open")
+                            }
+                            _ => println!("Unknown error"),
+                        },
+                    }
+                }
+                ("base", Some(base_matches)) => {
+                    let host = value_t!(base_matches, "hostname", String).expect("Invalid host");
+                    let port = value_t!(base_matches, "port", String).expect("Invalid port");
+                    let mut server = PowServer::new(host, port);
+                    match server.get_base() {
+                        Ok(b) => println!("{}", b),
+                        Err(e) => match e {
+                            PowLockError::InvalidOperationWhenUnlocked => {
+                                println!("Lock is unlocked; there is no base")
                             }
                             _ => println!("Unknown error"),
                         },

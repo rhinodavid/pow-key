@@ -74,7 +74,7 @@ fn main() {
                     .help("the number of worker processes to generate")
                     .takes_value(true)
                     .default_value("1")))
-            .subcommand(SubCommand::with_name("lock")
+            .subcommand(SubCommand::with_name("device")
                 .about("interacts with a POW lock over the network")
                 .setting(clap::AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(

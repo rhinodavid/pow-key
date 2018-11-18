@@ -102,6 +102,19 @@ fn main() {
                             .short("p")
                             .long("port")
                             .takes_value(true)
+                            .required(true)))
+                .subcommand(
+                    SubCommand::with_name("target")
+                        .about("gets the target hash of a locked device in hex")
+                        .arg(Arg::with_name("hostname")
+                            .short("h")
+                            .long("hostname")
+                            .takes_value(true)
+                            .required(true))
+                        .arg(Arg::with_name("port")
+                            .short("p")
+                            .long("port")
+                            .takes_value(true)
                             .required(true))))
         .get_matches();
 
@@ -177,6 +190,20 @@ fn main() {
                         Err(e) => match e {
                             PowLockError::InvalidOperationWhenUnlocked => {
                                 println!("Lock is unlocked; there is no base")
+                            }
+                            _ => println!("Unknown error"),
+                        },
+                    }
+                }
+                ("target", Some(target_matches)) => {
+                    let host = value_t!(target_matches, "hostname", String).expect("Invalid host");
+                    let port = value_t!(target_matches, "port", String).expect("Invalid port");
+                    let mut server = PowServer::new(host, port);
+                    match server.get_target() {
+                        Ok(b) => println!("{}", b),
+                        Err(e) => match e {
+                            PowLockError::InvalidOperationWhenUnlocked => {
+                                println!("Lock is unlocked; there is no target")
                             }
                             _ => println!("Unknown error"),
                         },

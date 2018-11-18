@@ -33,12 +33,12 @@ fn main() {
                 .arg(
                     Arg::with_name("number of processes")
                     .short("p")
-                    .long("numprocesses")
+                    .long("num_processes")
                     .help("the number of worker processes to generate")
                     .takes_value(true)
                     .default_value("1")))
         .subcommand(
-            SubCommand::with_name("maketarget")
+            SubCommand::with_name("make_target")
                 .about("generates a target hash given an amount of time to solve it and a hash rate")                .arg(
                 Arg::with_name("duration")
                     .short("d")
@@ -54,7 +54,7 @@ fn main() {
                         .takes_value(true)
                         .required(true)))
         .subcommand(
-            SubCommand::with_name("hashratetest")
+            SubCommand::with_name("hashrate_test")
                 .about("runs a short test to estimate the hashrate you can expect from this machine")
                 .arg(
                     Arg::with_name("length")
@@ -66,7 +66,7 @@ fn main() {
                 .arg(
                     Arg::with_name("number of processes")
                     .short("p")
-                    .long("numprocesses")
+                    .long("num_processes")
                     .help("the number of worker processes to generate")
                     .takes_value(true)
                     .default_value("1")))
@@ -98,20 +98,20 @@ fn main() {
                 None => println!("No solution found"),
             }
         }
-        ("maketarget", Some(maketarget_matches)) => {
-            let duration_string = maketarget_matches
+        ("make_target", Some(make_target_matches)) => {
+            let duration_string = make_target_matches
                 .value_of("duration")
                 .expect("Expected a valid duration string");
-            let hash_rate = value_t!(maketarget_matches, "hashrate", u64)
+            let hash_rate = value_t!(make_target_matches, "hashrate", u64)
                 .expect("Expected a valid integer hashrate");
             let result = Sha256Hash::target_for_duration(duration_string.to_string(), hash_rate);
             println!("{}", result);
         }
-        ("hashratetest", Some(hashratetest_matches)) => {
-            let num_workers = value_t!(hashratetest_matches, "number of processes", u8)
+        ("hashrate_test", Some(hashrate_test_matches)) => {
+            let num_workers = value_t!(hashrate_test_matches, "number of processes", u8)
                 .expect("Invalid number of worker processes");
             let length =
-                value_t!(hashratetest_matches, "length", u64).expect("Invalid test time length");
+                value_t!(hashrate_test_matches, "length", u64).expect("Invalid test time length");
             let test_hash_farm = HashWorkerFarm::new_test(num_workers);
             println!(
                 "Running test for {} seconds with {} processes",

@@ -181,6 +181,7 @@ impl HashWorkerFarm {
             reply_handle: response_receiver,
         }
     }
+
     pub fn solve(&self) -> Option<HashSolution> {
         let mut attempt_count: u64 = 0;
         let mut completed_workers: u8 = 0;
@@ -222,6 +223,75 @@ impl HashWorkerFarm {
             }
         }
         None
+    }
+
+    // builds a farm used to test the hashrate of the machine
+    pub fn new_test(num_workers: u8) -> HashWorkerFarm {
+        let (response_sender, response_receiver) = channel();
+        let base = b"anarbitrarystring".to_vec();
+        let target = Sha256Hash::from_str(
+            &"0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+        ).unwrap(); // impossible to solve
+        let mut workers = Vec::new();
+        let mut nonce_marker: u64 = 0;
+        let range_per_nonce = std::u64::MAX / num_workers as u64;
+        for i in 0..num_workers {
+            let base_clone = base.clone();
+            workers.push(HashWorker {
+                start_nonce: nonce_marker,
+                end_nonce: match i + 1 == num_workers {
+                    false => nonce_marker + range_per_nonce as u64,
+                    true => std::u64::MAX,
+                },
+                target: target.clone(),
+                hasher: Sha256Hasher::new(base_clone),
+                out_handle: response_sender.clone(),
+            });
+            nonce_marker = nonce_marker + range_per_nonce;
+        }
+        HashWorkerFarm {
+            workers: workers,
+            reply_handle: response_receiver,
+        }
+    }
+
+    // runs the test worker farm and returns the hashrate in H/s
+    pub fn run_test(&self, test_length_s: u64) -> u32 {
+        let mut attempt_count: u64 = 0;
+        let start_time = Instant::now();
+
+        for i in 0..self.workers.len() {
+            let worker = self.workers[i].clone();
+            std::thread::spawn(move || {
+                worker.solve();
+            });
+        }
+
+        for response in self.reply_handle.iter() {
+            match response {
+                HashResponse::Success(_) => {
+                    // this is impossible with a properly formed test worker farm
+                    panic!("A worker found a solution in a test farm")
+                }
+                HashResponse::Miss => {
+                    attempt_count += 1;
+                }
+                HashResponse::NoSolution => {
+                    // this shouldn't happen in the time frame allowed;
+                    // we don't want workers to exaust their nonce range
+                    panic!("A worker completed work in a test farm")
+                }
+            }
+
+            if attempt_count % 10000 == 0 {
+                let elapsed = start_time.elapsed();
+                if elapsed.as_secs() > test_length_s {
+                    let hash_rate = attempt_count as f64 / elapsed.as_secs() as f64;
+                    return hash_rate as u32;
+                }
+            }
+        }
+        panic!("Reached end without of function without returning a valid hash rate");
     }
 }
 

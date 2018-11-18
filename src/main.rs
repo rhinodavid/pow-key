@@ -52,8 +52,25 @@ fn main() {
                         .long("hashrate")
                         .help("the hashrate in hashes per second")
                         .takes_value(true)
-                        .required(true))
-        ).get_matches();
+                        .required(true)))
+        .subcommand(
+            SubCommand::with_name("hashratetest")
+                .about("runs a short test to estimate the hashrate you can expect from this machine")
+                .arg(
+                    Arg::with_name("length")
+                    .short("l")
+                    .long("length")
+                    .help("the length of time to run the test in seconds")
+                    .takes_value(true)
+                    .default_value("30"))
+                .arg(
+                    Arg::with_name("number of processes")
+                    .short("p")
+                    .long("numprocesses")
+                    .help("the number of worker processes to generate")
+                    .takes_value(true)
+                    .default_value("1")))
+        .get_matches();
 
     match matches.subcommand() {
         ("solve", Some(solve_matches)) => {
@@ -89,6 +106,18 @@ fn main() {
                 .expect("Expected a valid integer hashrate");
             let result = Sha256Hash::target_for_duration(duration_string.to_string(), hash_rate);
             println!("{}", result);
+        }
+        ("hashratetest", Some(hashratetest_matches)) => {
+            let num_workers = value_t!(hashratetest_matches, "number of processes", u8)
+                .expect("Invalid number of worker processes");
+            let length =
+                value_t!(hashratetest_matches, "length", u64).expect("Invalid test time length");
+            let test_hash_farm = HashWorkerFarm::new_test(num_workers);
+            println!(
+                "Running test for {} seconds with {} processes",
+                length, num_workers
+            );
+            println!("{}", test_hash_farm.run_test(length));
         }
         ("", None) => println!("No subcommand was used, try \"help\""),
         _ => unreachable!(), // Assuming you've listed all direct children above, this is unreachable

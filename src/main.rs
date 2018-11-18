@@ -115,7 +115,26 @@ fn main() {
                             .short("p")
                             .long("port")
                             .takes_value(true)
-                            .required(true))))
+                            .required(true)))
+                .subcommand(
+                    SubCommand::with_name("lock")
+                        .about("locks a device and sets the target hash")
+                        .arg(Arg::with_name("hostname")
+                            .short("h")
+                            .long("hostname")
+                            .takes_value(true)
+                            .required(true))
+                        .arg(Arg::with_name("port")
+                            .short("p")
+                            .long("port")
+                            .takes_value(true)
+                            .required(true))
+                        .arg(Arg::with_name("target")
+                            .short("t")
+                            .long("target")
+                            .takes_value(true)
+                            .required(true)))
+            )
         .get_matches();
 
     match matches.subcommand() {
@@ -204,6 +223,26 @@ fn main() {
                         Err(e) => match e {
                             PowLockError::InvalidOperationWhenUnlocked => {
                                 println!("Lock is unlocked; there is no target")
+                            }
+                            _ => println!("Unknown error"),
+                        },
+                    }
+                }
+                ("lock", Some(lock_matches)) => {
+                    let host = value_t!(lock_matches, "hostname", String).expect("Invalid host");
+                    let port = value_t!(lock_matches, "port", String).expect("Invalid port");
+                    let target = value_t!(lock_matches, "target", String).expect("Invalid port");
+                    if target.len() != 64 {
+                        println!(
+                            "Targets must be a 64 character hex string representing a SHA 256 hash"
+                        );
+                    }
+                    let mut server = PowServer::new(host, port);
+                    match server.lock(target) {
+                        Ok(b) => println!("Locked. Base string is:\n{}", b),
+                        Err(e) => match e {
+                            PowLockError::InvalidOperationWhenLocked => {
+                                println!("Lock is already locked; cannot lock it again")
                             }
                             _ => println!("Unknown error"),
                         },

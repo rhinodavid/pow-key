@@ -183,12 +183,13 @@ fn main() {
             let result = hash_farm.solve();
             match result {
                 Some(result) => println!(
-                    "Base string: {},\nSolved with nonce: {},\nAs bytes: {},\nHash: {}\nTarget: {}\nTime (s): {}",
+                    "Base string: {},\nSolved with nonce: {},\nAs bytes: {},\nHash: {}\nTarget: {}\nAttempts: {}\nTime (s): {}",
                     base_string,
                     result.nonce,
                     result.nonce.as_hex_bytes(),
                     result.hash,
                     target_hash,
+                    result.attempts,
                     start_time.elapsed().as_secs()
                 ),
                 None => println!("No solution found"),

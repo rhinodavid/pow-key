@@ -102,12 +102,14 @@ impl Sha256Hash {
     pub fn target_for_duration(duration: String, hash_rate: u64 /* hashes/s */) -> Self {
         let d: Duration = duration.parse::<humantime::Duration>().unwrap().into();
         let expected_hashes: u64 = d.as_secs() as u64 * hash_rate;
+        println!("Expected hashes: {}", expected_hashes);
         Sha256Hash::target_for_hash_attempts_expected(expected_hashes)
     }
 }
 
 pub struct HashSolution {
     pub nonce: Nonce,
+    pub attempts: u64, // hash attempts conducted to find solution
     pub hash: Sha256Hash,
 }
 
@@ -128,6 +130,7 @@ impl HashWorker {
             if hash_result < self.target {
                 self.out_handle
                     .send(HashResponse::Success(HashSolution {
+                        attempts: 0,
                         hash: hash_result,
                         nonce: n,
                     })).unwrap_or_else(|_| return);
@@ -197,7 +200,11 @@ impl HashWorkerFarm {
         for response in self.reply_handle.iter() {
             match response {
                 HashResponse::Success(solution) => {
-                    return Some(solution);
+                    return Some(HashSolution {
+                        nonce: solution.nonce,
+                        attempts: attempt_count,
+                        hash: solution.hash,
+                    });
                 }
                 HashResponse::Miss => {
                     attempt_count += 1;

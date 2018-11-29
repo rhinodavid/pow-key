@@ -105,6 +105,14 @@ impl Sha256Hash {
         println!("Expected hashes: {}", expected_hashes);
         Sha256Hash::target_for_hash_attempts_expected(expected_hashes)
     }
+
+    pub fn expected_attempts_to_solve(&self) -> u64 {
+        let max_attempts = U256::from_str(
+            &"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
+        ).unwrap();
+        let target_u256 = U256::from(self.value);
+        (max_attempts / target_u256).as_u64()
+    }
 }
 
 pub struct HashSolution {
@@ -398,5 +406,21 @@ mod tests {
             Sha256Hash::target_for_hash_attempts_expected(100),
             Sha256Hash::target_for_duration("10s".to_string(), 10) // 10 h/s for 10s = 100 hashes
         );
+    }
+
+    #[test]
+    fn it_computes_expected_hash_attempts_for_target_max() {
+        let target = Sha256Hash::from_str(
+            &"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
+        ).unwrap();
+        assert_eq!(target.expected_attempts_to_solve(), 1);
+    }
+
+    #[test]
+    fn it_computes_expected_hash_attempts_for_target() {
+        let target = Sha256Hash::from_str(
+            &"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
+        ).unwrap();
+        assert_eq!(target.expected_attempts_to_solve(), 4_294_967_296);
     }
 }

@@ -1,9 +1,11 @@
 extern crate byteorder;
+extern crate console;
 extern crate crypto;
 extern crate humantime;
 extern crate rustc_serialize as serialize;
 extern crate uint;
 
+use self::console::Term;
 use hash::byteorder::{LittleEndian, WriteBytesExt};
 use hash::crypto::digest::Digest;
 use hash::crypto::sha2::Sha256;
@@ -197,6 +199,8 @@ impl HashWorkerFarm {
         let mut attempt_count: u64 = 0;
         let mut completed_workers: u8 = 0;
         let start_time = Instant::now();
+        let term = Term::stdout();
+        let mut first_line = true;
 
         for i in 0..self.workers.len() {
             let worker = self.workers[i].clone();
@@ -230,11 +234,16 @@ impl HashWorkerFarm {
                 let elapsed = start_time.elapsed();
                 let hash_rate = attempt_count as f64 / elapsed.as_secs() as f64;
                 let percent_total = attempt_count as f64 / std::u64::MAX as f64 * 100.0;
-                println!(
+                if first_line {
+                    first_line = false;
+                } else {
+                    term.clear_line().unwrap();
+                }
+                term.write_line(&format!(
                     "{:.1}% through all possibilities; hashrate: {:.2}k/s",
                     percent_total,
-                    hash_rate / 1000.0
-                )
+                    hash_rate / 1000.0,
+                )).unwrap();
             }
         }
         None

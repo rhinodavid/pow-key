@@ -7,6 +7,7 @@ authors = ["David Walsh"]
 byteorder = "1.2.7"
 bytes = "0.4.10"
 clap = "~2.32"
+console = "0.7.0"
 humantime = "1.1.1"
 rust-crypto = "0.2.36"
 rustc-serialize = "0.3.24"

@@ -295,7 +295,7 @@ impl HashWorkerFarm {
             match response {
                 HashResponse::Success(_) => {
                     // this is impossible with a properly formed test worker farm
-                    panic!("A worker found a solution in a test farm")
+                    unreachable!("A worker found a solution in a test farm")
                 }
                 HashResponse::Miss => {
                     attempt_count += 1;
@@ -303,7 +303,7 @@ impl HashWorkerFarm {
                 HashResponse::NoSolution => {
                     // this shouldn't happen in the time frame allowed;
                     // we don't want workers to exaust their nonce range
-                    panic!("A worker completed work in a test farm")
+                    unreachable!("A worker completed work in a test farm")
                 }
             }
 

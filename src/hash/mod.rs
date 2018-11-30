@@ -115,6 +115,36 @@ impl Sha256Hash {
         let target_u256 = U256::from(self.value);
         (max_attempts / target_u256).as_u64()
     }
+
+    /**
+     * 90% of cases will require less than this number of attempts to solve
+     */
+    pub fn p90_attempts_to_solve(&self) -> u64 {
+        let expected = self.expected_attempts_to_solve();
+        let std_dev = self.standard_deviation_for_expected_attempts();
+        (expected + (1.28 * std_dev as f64) as u64)
+    }
+
+    /**
+     * 99% of cases will require less than this number of attempts to solve
+     */
+    pub fn p99_attempts_to_solve(&self) -> u64 {
+        let expected = self.expected_attempts_to_solve();
+        let std_dev = self.standard_deviation_for_expected_attempts();
+        (expected + (2.33 * std_dev as f64) as u64)
+    }
+
+    fn standard_deviation_for_expected_attempts(&self) -> u64 {
+        let max_attempts = U256::from_str(
+            &"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
+        ).unwrap();
+        let target_u256 = U256::from(self.value);
+        let p_inv = max_attempts / target_u256;
+        let p = 1.0 / p_inv.as_u64() as f64;
+        let variance = (1.0 - p) / (p * p);
+        let std_dev = variance.sqrt();
+        std_dev as u64
+    }
 }
 
 pub struct HashSolution {
@@ -166,9 +196,10 @@ enum HashResponse {
 }
 
 pub struct HashWorkerFarm {
-    workers: Vec<HashWorker>,
-    response_sender: Sender<HashResponse>,
     reply_handle: Receiver<HashResponse>,
+    response_sender: Sender<HashResponse>,
+    target: Sha256Hash,
+    workers: Vec<HashWorker>,
 }
 
 impl HashWorkerFarm {
@@ -192,9 +223,10 @@ impl HashWorkerFarm {
             nonce_marker = nonce_marker + range_per_nonce;
         }
         HashWorkerFarm {
-            workers: workers,
-            response_sender: response_sender,
             reply_handle: response_receiver,
+            response_sender: response_sender,
+            target: target,
+            workers: workers,
         }
     }
 
@@ -204,6 +236,9 @@ impl HashWorkerFarm {
         let start_time = Instant::now();
         let term = Term::stdout();
         let mut first_line = true;
+        let expected_attempts = self.target.expected_attempts_to_solve();
+        let p90_attempts = self.target.p90_attempts_to_solve();
+        let p99_attempts = self.target.p99_attempts_to_solve();
 
         for i in 0..self.workers.len() {
             let worker = self.workers[i].clone();
@@ -243,17 +278,42 @@ impl HashWorkerFarm {
                     // print debug info
                     let elapsed = start_time.elapsed();
                     let hash_rate = attempt_count as f64 / elapsed.as_secs() as f64;
-                    let percent_total = attempt_count as f64 / std::u64::MAX as f64 * 100.0;
+                    let percent_expected = attempt_count as f64 / expected_attempts as f64 * 100.0;
+                    let percent_p90 = attempt_count as f64 / p90_attempts as f64 * 100.0;
+                    let percent_p99 = attempt_count as f64 / p99_attempts as f64 * 100.0;
+                    let percent_all = attempt_count as f64 / std::u64::MAX as f64 * 100.0;
+
                     if first_line {
                         first_line = false;
                     } else {
+                        term.move_cursor_up(1).unwrap();
                         term.clear_line().unwrap();
                     }
-                    term.write_str(&format!(
-                        "{:.1}% through all possibilities; hashrate: {:.2}k/s",
-                        percent_total,
-                        hash_rate / 1000.0,
-                    )).unwrap();
+                    if percent_expected < 100.0 {
+                        term.write_line(&format!(
+                            "{:.1}% through expected attempts; hashrate: {:.2}k/s",
+                            percent_expected,
+                            hash_rate / 1000.0,
+                        )).unwrap();
+                    } else if percent_p90 < 100.0 {
+                        term.write_line(&format!(
+                            "{:.1}% through p90 attempts; hashrate: {:.2}k/s",
+                            percent_p90,
+                            hash_rate / 1000.0,
+                        )).unwrap();
+                    } else if percent_p99 < 100.0 {
+                        term.write_line(&format!(
+                            "{:.1}% through p99 attempts; hashrate: {:.2}k/s",
+                            percent_p99,
+                            hash_rate / 1000.0,
+                        )).unwrap();
+                    } else {
+                        term.write_line(&format!(
+                            "{:.1}% through all possible attempts; hashrate: {:.2}k/s",
+                            percent_all,
+                            hash_rate / 1000.0,
+                        )).unwrap();
+                    }
                 }
             }
         }
@@ -285,9 +345,10 @@ impl HashWorkerFarm {
             nonce_marker = nonce_marker + range_per_nonce;
         }
         HashWorkerFarm {
-            workers: workers,
-            response_sender: response_sender,
             reply_handle: response_receiver,
+            response_sender: response_sender,
+            target: target,
+            workers: workers,
         }
     }
 

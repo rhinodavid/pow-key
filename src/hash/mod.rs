@@ -160,12 +160,14 @@ impl HashWorker {
 
 enum HashResponse {
     Success(HashSolution),
-    Miss,       // worker attempted a hash but it wasn't successful
-    NoSolution, // worker went through assigned nonce range with no solution
+    Miss,                // worker attempted a hash but it wasn't successful
+    NoSolution,          // worker went through assigned nonce range with no solution
+    ProgressMessageTick, // sent at a consistent interval to print a progress message
 }
 
 pub struct HashWorkerFarm {
     workers: Vec<HashWorker>,
+    response_sender: Sender<HashResponse>,
     reply_handle: Receiver<HashResponse>,
 }
 
@@ -191,6 +193,7 @@ impl HashWorkerFarm {
         }
         HashWorkerFarm {
             workers: workers,
+            response_sender: response_sender,
             reply_handle: response_receiver,
         }
     }
@@ -208,6 +211,15 @@ impl HashWorkerFarm {
                 worker.solve();
             });
         }
+
+        let timer_sender_handle = self.response_sender.clone();
+
+        std::thread::spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_secs(3));
+            timer_sender_handle
+                .send(HashResponse::ProgressMessageTick)
+                .unwrap_or_else(|_| return);
+        });
 
         for response in self.reply_handle.iter() {
             match response {
@@ -227,23 +239,22 @@ impl HashWorkerFarm {
                         return None;
                     }
                 }
-            }
-
-            if attempt_count % 500000 == 0 {
-                // print debug info
-                let elapsed = start_time.elapsed();
-                let hash_rate = attempt_count as f64 / elapsed.as_secs() as f64;
-                let percent_total = attempt_count as f64 / std::u64::MAX as f64 * 100.0;
-                if first_line {
-                    first_line = false;
-                } else {
-                    term.clear_line().unwrap();
+                HashResponse::ProgressMessageTick => {
+                    // print debug info
+                    let elapsed = start_time.elapsed();
+                    let hash_rate = attempt_count as f64 / elapsed.as_secs() as f64;
+                    let percent_total = attempt_count as f64 / std::u64::MAX as f64 * 100.0;
+                    if first_line {
+                        first_line = false;
+                    } else {
+                        term.clear_line().unwrap();
+                    }
+                    term.write_str(&format!(
+                        "{:.1}% through all possibilities; hashrate: {:.2}k/s",
+                        percent_total,
+                        hash_rate / 1000.0,
+                    )).unwrap();
                 }
-                term.write_line(&format!(
-                    "{:.1}% through all possibilities; hashrate: {:.2}k/s",
-                    percent_total,
-                    hash_rate / 1000.0,
-                )).unwrap();
             }
         }
         None
@@ -275,6 +286,7 @@ impl HashWorkerFarm {
         }
         HashWorkerFarm {
             workers: workers,
+            response_sender: response_sender,
             reply_handle: response_receiver,
         }
     }
@@ -305,6 +317,7 @@ impl HashWorkerFarm {
                     // we don't want workers to exaust their nonce range
                     unreachable!("A worker completed work in a test farm")
                 }
+                HashResponse::ProgressMessageTick => (), // TODO: add some output while test is running
             }
 
             if attempt_count % 10000 == 0 {

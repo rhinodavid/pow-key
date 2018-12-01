@@ -2,10 +2,13 @@ extern crate byteorder;
 extern crate console;
 extern crate crypto;
 extern crate humantime;
+extern crate indicatif;
+extern crate rand;
 extern crate rustc_serialize as serialize;
 extern crate uint;
 
 use self::console::Term;
+use self::indicatif::{ProgressBar, ProgressStyle};
 use hash::byteorder::{LittleEndian, WriteBytesExt};
 use hash::crypto::digest::Digest;
 use hash::crypto::sha2::Sha256;
@@ -234,12 +237,49 @@ impl HashWorkerFarm {
         let mut attempt_count: u64 = 0;
         let mut completed_workers: u8 = 0;
         let start_time = Instant::now();
-        let term = Term::stdout();
-        let mut first_line = true;
+
         let expected_attempts = self.target.expected_attempts_to_solve();
         let p90_attempts = self.target.p90_attempts_to_solve();
         let p99_attempts = self.target.p99_attempts_to_solve();
+        let all_attempts = std::u64::MAX;
 
+        // progress bar
+        let console = Term::stdout();
+        let progress_bar_style = ProgressStyle::default_bar().template(
+            "{spinner:.green} {prefix} [{elapsed_precise}] [{bar:32.cyan/blue}] {percent}% ({eta})",
+        );
+        let mut first_run = true;
+
+        let expected_progress_bar = ProgressBar::new(expected_attempts);
+        let p90_progress_bar = ProgressBar::new(p90_attempts);
+        let p99_progress_bar = ProgressBar::new(p99_attempts);
+        let all_progress_bar = ProgressBar::new(all_attempts);
+
+        let progress_bars = vec![
+            expected_progress_bar,
+            p90_progress_bar,
+            p99_progress_bar,
+            all_progress_bar,
+        ];
+
+        let prefixes = vec![
+            "Average expected attempts:\t",
+            "p90 expected attempts:\t",
+            "p99 expected attempts:\t",
+            "All possible attempts:\t",
+        ];
+
+        for i in 0..progress_bars.len() {
+            progress_bars[i].set_style(progress_bar_style.clone());
+            progress_bars[i].set_prefix(prefixes[i]);
+            // progress_bars[i].enable_steady_tick(500);
+            progress_bars[i].set_position(0);
+            for _ in 0..rand::random::<u8>() {
+                progress_bars[i].tick();
+            }
+        }
+
+        // run workers
         for i in 0..self.workers.len() {
             let worker = self.workers[i].clone();
             std::thread::spawn(move || {
@@ -247,15 +287,17 @@ impl HashWorkerFarm {
             });
         }
 
+        // timer tick setup
         let timer_sender_handle = self.response_sender.clone();
 
         std::thread::spawn(move || loop {
-            std::thread::sleep(std::time::Duration::from_secs(3));
+            std::thread::sleep(std::time::Duration::from_millis(250));
             timer_sender_handle
                 .send(HashResponse::ProgressMessageTick)
                 .unwrap_or_else(|_| return);
         });
 
+        // handle worker responses
         for response in self.reply_handle.iter() {
             match response {
                 HashResponse::Success(solution) => {
@@ -278,41 +320,27 @@ impl HashWorkerFarm {
                     // print debug info
                     let elapsed = start_time.elapsed();
                     let hash_rate = attempt_count as f64 / elapsed.as_secs() as f64;
-                    let percent_expected = attempt_count as f64 / expected_attempts as f64 * 100.0;
-                    let percent_p90 = attempt_count as f64 / p90_attempts as f64 * 100.0;
-                    let percent_p99 = attempt_count as f64 / p99_attempts as f64 * 100.0;
-                    let percent_all = attempt_count as f64 / std::u64::MAX as f64 * 100.0;
-
-                    if first_line {
+                    let mut first_line = true;
+                    progress_bars[0].println(format!("Hash Rate: {:.1}kh/s", hash_rate / 1000.0));
+                    for progress_bar in &progress_bars {
+                        console.clear_line().unwrap();
+                        progress_bar.set_position(attempt_count);
+                        if !first_run {
+                            console.move_cursor_down(1).unwrap();
+                        }
                         first_line = false;
-                    } else {
-                        term.move_cursor_up(1).unwrap();
-                        term.clear_line().unwrap();
                     }
-                    if percent_expected < 100.0 {
-                        term.write_line(&format!(
-                            "{:.1}% through expected attempts; hashrate: {:.2}k/s",
-                            percent_expected,
-                            hash_rate / 1000.0,
-                        )).unwrap();
-                    } else if percent_p90 < 100.0 {
-                        term.write_line(&format!(
-                            "{:.1}% through p90 attempts; hashrate: {:.2}k/s",
-                            percent_p90,
-                            hash_rate / 1000.0,
-                        )).unwrap();
-                    } else if percent_p99 < 100.0 {
-                        term.write_line(&format!(
-                            "{:.1}% through p99 attempts; hashrate: {:.2}k/s",
-                            percent_p99,
-                            hash_rate / 1000.0,
-                        )).unwrap();
+                    first_run = false;
+                    console.move_cursor_up(4).unwrap();
+                    if attempt_count < expected_attempts {
+                        // do we need to do something?
+                    } else if attempt_count < p90_attempts {
+                        progress_bars[0]
+                            .finish_with_message("Complete with average expected attempts");
+                    } else if attempt_count < p99_attempts {
+                        progress_bars[1].finish_with_message("Complete with p90 expected attempts");
                     } else {
-                        term.write_line(&format!(
-                            "{:.1}% through all possible attempts; hashrate: {:.2}k/s",
-                            percent_all,
-                            hash_rate / 1000.0,
-                        )).unwrap();
+                        progress_bars[2].finish_with_message("Complete with p99 expected attempts");
                     }
                 }
             }

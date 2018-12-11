@@ -43,13 +43,14 @@ fn main() {
                     .default_value("1")))
         .subcommand(
             SubCommand::with_name("make_target")
-                .about("generates a target hash given an amount of time to solve it and a hash rate")                .arg(
-                Arg::with_name("duration")
-                    .short("d")
-                    .long("duration")
-                    .help("a plain text description of how long it should take to solve, ex: 4hr 25min")
-                    .takes_value(true)
-                    .required(true))
+                .about("generates a target hash given an amount of time to solve it and a hash rate")
+                .arg(
+                    Arg::with_name("duration")
+                        .short("d")
+                        .long("duration")
+                        .help("a plain text description of how long it should take to solve, ex: 4hr 25min")
+                        .takes_value(true)
+                        .required(true))
                 .arg(
                     Arg::with_name("hashrate")
                         .short("r")

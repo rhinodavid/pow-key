@@ -1,16 +1,12 @@
-#[macro_use]
-extern crate clap;
-
 mod hash;
 mod net;
 
-use clap::{App, Arg, SubCommand};
-use hash::HashWorkerFarm;
-use hash::Sha256Hash;
-use hash::TNonce;
+use self::hash::HashWorkerFarm;
+use self::hash::Sha256Hash;
+use self::hash::TNonce;
+use self::net::{PowLockError, PowServer};
+use clap::{value_t, App, Arg, SubCommand};
 use std::time::Instant;
-
-use net::{PowLockError, PowServer};
 
 fn main() {
     let matches = App::new("POW Key")

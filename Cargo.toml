@@ -2,6 +2,7 @@
 name = "pow_key"
 version = "0.1.0"
 authors = ["David Walsh"]
+edition = "2018"
 
 [dependencies]
 byteorder = "1.2.7"

@@ -1,23 +1,16 @@
-extern crate byteorder;
-extern crate console;
-extern crate crypto;
-extern crate humantime;
-extern crate indicatif;
-extern crate rand;
-extern crate rustc_serialize as serialize;
-extern crate uint;
+use rustc_serialize as serialize;
 
-use self::console::Term;
-use self::indicatif::{ProgressBar, ProgressStyle};
-use hash::byteorder::{LittleEndian, WriteBytesExt};
-use hash::crypto::digest::Digest;
-use hash::crypto::sha2::Sha256;
-use hash::serialize::hex::{FromHex, ToHex};
-use hash::uint::U256;
+use self::serialize::hex::{FromHex, ToHex};
+use byteorder::{LittleEndian, WriteBytesExt};
+use console::Term;
+use crypto::digest::Digest;
+use crypto::sha2::Sha256;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::str::FromStr;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Duration;
 use std::time::Instant;
+use uint::U256;
 
 // BASE: string
 // HASH: 32-bytes (SHA-256)
@@ -97,7 +90,8 @@ impl Sha256Hash {
         // https://en.wikipedia.org/wiki/Geometric_distribution
         let max_attempts = U256::from_str(
             &"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         let target_u256 = max_attempts / U256::from(hash_attempts_expected);
         let mut result: [u8; 32] = [0; 32];
         target_u256.to_big_endian(&mut result);
@@ -114,7 +108,8 @@ impl Sha256Hash {
     pub fn expected_attempts_to_solve(&self) -> u64 {
         let max_attempts = U256::from_str(
             &"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         let target_u256 = U256::from(self.value);
         (max_attempts / target_u256).as_u64()
     }
@@ -140,7 +135,8 @@ impl Sha256Hash {
     fn standard_deviation_for_expected_attempts(&self) -> u64 {
         let max_attempts = U256::from_str(
             &"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         let target_u256 = U256::from(self.value);
         let p_inv = max_attempts / target_u256;
         let p = 1.0 / p_inv.as_u64() as f64;
@@ -176,7 +172,8 @@ impl HashWorker {
                         attempts: 0,
                         hash: hash_result,
                         nonce: n,
-                    })).unwrap_or_else(|_| return);
+                    }))
+                    .unwrap_or_else(|_| return);
                 return;
             } else {
                 self.out_handle
@@ -320,7 +317,6 @@ impl HashWorkerFarm {
                     // print debug info
                     let elapsed = start_time.elapsed();
                     let hash_rate = attempt_count as f64 / elapsed.as_secs() as f64;
-                    let mut first_line = true;
                     progress_bars[0].println(format!("Hash Rate: {:.1}kh/s", hash_rate / 1000.0));
                     for progress_bar in &progress_bars {
                         console.clear_line().unwrap();
@@ -328,7 +324,6 @@ impl HashWorkerFarm {
                         if !first_run {
                             console.move_cursor_down(1).unwrap();
                         }
-                        first_line = false;
                     }
                     first_run = false;
                     console.move_cursor_up(4).unwrap();
@@ -354,7 +349,8 @@ impl HashWorkerFarm {
         let base = b"anarbitrarystring".to_vec();
         let target = Sha256Hash::from_str(
             &"0000000000000000000000000000000000000000000000000000000000000000".to_string(),
-        ).unwrap(); // impossible to solve
+        )
+        .unwrap(); // impossible to solve
         let mut workers = Vec::new();
         let mut nonce_marker: u64 = 0;
         let range_per_nonce = std::u64::MAX / num_workers as u64;
@@ -432,14 +428,14 @@ pub fn nonce_to_bytes(nonce: Nonce) -> [u8; 8] {
 
 #[cfg(test)]
 mod tests {
-    use hash::Sha256Hash;
-    use hash::Sha256Hasher;
+    use super::{Sha256Hash, Sha256Hasher};
     use std::str::FromStr;
     #[test]
     fn it_creates_sha_hashes_from_hex() {
         let hash = Sha256Hash::from_str(
             &"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(
             Sha256Hash {
                 value: [
@@ -462,7 +458,8 @@ mod tests {
         let hasher = Sha256Hasher::new(b"abc".to_vec());
         let answer = Sha256Hash::from_str(
             &"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(answer, Sha256Hasher::hash_impl(&hasher.base));
     }
 
@@ -471,7 +468,8 @@ mod tests {
         let hasher = Sha256Hasher::new(b"".to_vec());
         let answer = Sha256Hash::from_str(
             &"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(answer, Sha256Hasher::hash_impl(&hasher.base));
     }
 
@@ -480,7 +478,8 @@ mod tests {
         let hasher = Sha256Hasher::new(b"helloworld".to_vec());
         let answer = Sha256Hash::from_str(
             &"c81ee5e927e9d7987e1ad7c92eb63ecb78d9a7a5949de5462f5f1d79d6b5d0d1".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(answer, hasher.hash_with_nonce(0));
     }
 
@@ -489,7 +488,8 @@ mod tests {
         let hasher = Sha256Hasher::new(b"abc".to_vec());
         let answer = Sha256Hash::from_str(
             &"bd2154c71c7a42c66269709fc3508b587bbd61cce9c977fe0c9d313e7a47fb55".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(answer, hasher.hash_with_nonce(4294967295));
     }
 
@@ -497,7 +497,8 @@ mod tests {
     fn it_computes_hash_targets_for_expected_attempts() {
         let answer = Sha256Hash::from_str(
             &"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(answer, Sha256Hash::target_for_hash_attempts_expected(1));
 
         assert!(
@@ -523,7 +524,8 @@ mod tests {
     fn it_computes_expected_hash_attempts_for_target_max() {
         let target = Sha256Hash::from_str(
             &"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(target.expected_attempts_to_solve(), 1);
     }
 
@@ -531,7 +533,8 @@ mod tests {
     fn it_computes_expected_hash_attempts_for_target() {
         let target = Sha256Hash::from_str(
             &"00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(target.expected_attempts_to_solve(), 4_294_967_296);
     }
 }

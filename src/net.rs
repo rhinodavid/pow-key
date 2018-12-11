@@ -1,7 +1,7 @@
-extern crate rustc_serialize as serialize;
+use rustc_serialize as serialize;
 
-use super::hash::TNonce;
-use net::serialize::hex::FromHex;
+use self::serialize::hex::FromHex;
+use crate::hash::TNonce;
 use std::io::prelude::*;
 use std::io::{BufRead, BufReader};
 use std::net::TcpStream;
@@ -26,18 +26,16 @@ impl PowServer {
     }
 
     pub fn open(&mut self) -> Result<(), PowLockError> {
-        let _ = try!(
-            self.stream
-                .write(b"O\n")
-                .map_err(|_| PowLockError::Connection)
-        );
+        self.stream
+            .write(b"O\n")
+            .map_err(|_| PowLockError::Connection)?;
+
         let mut reader = BufReader::new(&self.stream);
         let mut response = String::new();
-        try!(
-            reader
-                .read_line(&mut response)
-                .map_err(|_| PowLockError::Unknown)
-        );
+
+        reader
+            .read_line(&mut response)
+            .map_err(|_| PowLockError::Unknown)?;
         if response.starts_with("ERROR") {
             return Err(PowLockError::InvalidOperationWhenLocked);
         }
@@ -56,20 +54,16 @@ impl PowServer {
         message.extend(nonce_bytes.as_bytes());
         message.extend(b"\n");
 
-        let _ = try!(
-            self.stream
-                .write(&message)
-                .map_err(|_| PowLockError::Connection)
-        );
+        self.stream
+            .write(&message)
+            .map_err(|_| PowLockError::Connection)?;
 
         let mut reader = BufReader::new(&self.stream);
         let mut response = String::new();
 
-        try!(
-            reader
-                .read_line(&mut response)
-                .map_err(|_| PowLockError::Unknown)
-        );
+        reader
+            .read_line(&mut response)
+            .map_err(|_| PowLockError::Unknown)?;
 
         if response.starts_with("1") {
             return Ok(());
@@ -81,18 +75,15 @@ impl PowServer {
     }
 
     pub fn get_status(&mut self) -> Result<String, PowLockError> {
-        let _ = try!(
-            self.stream
-                .write(b"s\n")
-                .map_err(|_| PowLockError::Connection)
-        );
+        self.stream
+            .write(b"s\n")
+            .map_err(|_| PowLockError::Connection)?;
         let mut reader = BufReader::new(&self.stream);
         let mut response = String::new();
-        try!(
-            reader
-                .read_line(&mut response)
-                .map_err(|_| PowLockError::Unknown)
-        );
+
+        reader
+            .read_line(&mut response)
+            .map_err(|_| PowLockError::Unknown)?;
         if response.starts_with("1") {
             return Ok("Locked".to_string());
         }
@@ -103,18 +94,15 @@ impl PowServer {
     }
 
     pub fn get_base(&mut self) -> Result<String, PowLockError> {
-        let _ = try!(
-            self.stream
-                .write(b"b\n")
-                .map_err(|_| PowLockError::Connection)
-        );
+        self.stream
+            .write(b"b\n")
+            .map_err(|_| PowLockError::Connection)?;
         let mut reader = BufReader::new(&self.stream);
         let mut response = String::new();
-        try!(
-            reader
-                .read_line(&mut response)
-                .map_err(|_| PowLockError::Unknown)
-        );
+
+        reader
+            .read_line(&mut response)
+            .map_err(|_| PowLockError::Unknown)?;
         if response.starts_with("ERROR") {
             return Err(PowLockError::InvalidOperationWhenUnlocked);
         }
@@ -122,18 +110,15 @@ impl PowServer {
     }
 
     pub fn get_target(&mut self) -> Result<String, PowLockError> {
-        let _ = try!(
-            self.stream
-                .write(b"t\n")
-                .map_err(|_| PowLockError::Connection)
-        );
+        self.stream
+            .write(b"t\n")
+            .map_err(|_| PowLockError::Connection)?;
         let mut reader = BufReader::new(&self.stream);
         let mut response = String::new();
-        try!(
-            reader
-                .read_line(&mut response)
-                .map_err(|_| PowLockError::Unknown)
-        );
+
+        reader
+            .read_line(&mut response)
+            .map_err(|_| PowLockError::Unknown)?;
         if response.starts_with("ERROR") {
             return Err(PowLockError::InvalidOperationWhenUnlocked);
         }
@@ -167,20 +152,16 @@ impl PowServer {
         message.extend(hash.iter());
         message.extend(b"\n");
 
-        let _ = try!(
-            self.stream
-                .write(&message)
-                .map_err(|_| PowLockError::Connection)
-        );
+        self.stream
+            .write(&message)
+            .map_err(|_| PowLockError::Connection)?;
 
         let mut reader = BufReader::new(&self.stream);
         let mut response = String::new();
 
-        try!(
-            reader
-                .read_line(&mut response)
-                .map_err(|_| PowLockError::Unknown)
-        );
+        reader
+            .read_line(&mut response)
+            .map_err(|_| PowLockError::Unknown)?;
 
         if response.starts_with("ERROR") {
             return Err(PowLockError::InvalidOperationWhenLocked);

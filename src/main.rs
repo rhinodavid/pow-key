@@ -177,7 +177,7 @@ fn main() {
                 .expect("Invalid number of worker processes");
             let hash_farm = HashWorkerFarm::new(base, target_hash.clone(), num_workers);
             let start_time = Instant::now();
-            let result = hash_farm.solve();
+            let result = HashWorkerFarm::solve(Box::from(hash_farm));
             match result {
                 Some(result) => println!(
                     "Base string: {},\nSolved with nonce: {},\nAs bytes: {},\nHash: {}\nTarget: {}\nAttempts: {}\nTime (s): {}",

@@ -2,10 +2,9 @@ use rustc_serialize as serialize;
 
 use self::serialize::hex::{FromHex, ToHex};
 use byteorder::{LittleEndian, WriteBytesExt};
-use console::Term;
 use crypto::digest::Digest;
 use crypto::sha2::Sha256;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{HumanDuration, MultiProgress, ProgressBar, ProgressStyle};
 use std::str::FromStr;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Duration;
@@ -230,27 +229,25 @@ impl HashWorkerFarm {
         }
     }
 
-    pub fn solve(&self) -> Option<HashSolution> {
+    pub fn solve(self: Box<Self>) -> Option<HashSolution> {
         let mut attempt_count: u64 = 0;
         let mut completed_workers: u8 = 0;
-        let start_time = Instant::now();
 
         let expected_attempts = self.target.expected_attempts_to_solve();
         let p90_attempts = self.target.p90_attempts_to_solve();
         let p99_attempts = self.target.p99_attempts_to_solve();
-        let all_attempts = std::u64::MAX;
+        let all_attempts = std::u64::MAX - 1; // duration to finish time doesn't work without the -1
 
         // progress bar
-        let console = Term::stdout();
-        let progress_bar_style = ProgressStyle::default_bar().template(
-            "{spinner:.green} {prefix} [{elapsed_precise}] [{bar:32.cyan/blue}] {percent}% ({eta})",
-        );
-        let mut first_run = true;
+        let progress_bar_style = ProgressStyle::default_bar()
+            .template("{spinner:.green} {prefix} [{bar:40.cyan/blue}] {percent}% ({eta})")
+            .progress_chars("█▉▊▋▌▍▎▏  ");
 
-        let expected_progress_bar = ProgressBar::new(expected_attempts);
-        let p90_progress_bar = ProgressBar::new(p90_attempts);
-        let p99_progress_bar = ProgressBar::new(p99_attempts);
-        let all_progress_bar = ProgressBar::new(all_attempts);
+        let m = MultiProgress::new();
+        let expected_progress_bar = m.add(ProgressBar::new(expected_attempts));
+        let p90_progress_bar = m.add(ProgressBar::new(p90_attempts));
+        let p99_progress_bar = m.add(ProgressBar::new(p99_attempts));
+        let all_progress_bar = m.add(ProgressBar::new(all_attempts));
 
         let progress_bars = vec![
             expected_progress_bar,
@@ -269,12 +266,14 @@ impl HashWorkerFarm {
         for i in 0..progress_bars.len() {
             progress_bars[i].set_style(progress_bar_style.clone());
             progress_bars[i].set_prefix(prefixes[i]);
-            // progress_bars[i].enable_steady_tick(500);
             progress_bars[i].set_position(0);
             for _ in 0..rand::random::<u8>() {
-                progress_bars[i].tick();
+                progress_bars[i].tick(); // randomizes the position of the spinner
             }
         }
+        progress_bars[3].set_style(progress_bar_style.clone().template(
+            "{spinner:.green} {prefix} [{bar:40.cyan/blue}] {percent}% ({eta})\n{wide_msg}",
+        ));
 
         // run workers
         for i in 0..self.workers.len() {
@@ -284,63 +283,74 @@ impl HashWorkerFarm {
             });
         }
 
-        // timer tick setup
+        // implement a timer thread to update the progress bars
+        // since that operation is relatively expensive, we don't want to
+        // do it every time a worker records a miss
         let timer_sender_handle = self.response_sender.clone();
 
         std::thread::spawn(move || loop {
-            std::thread::sleep(std::time::Duration::from_millis(250));
+            std::thread::sleep(std::time::Duration::from_millis(333));
             timer_sender_handle
                 .send(HashResponse::ProgressMessageTick)
                 .unwrap_or_else(|_| return);
         });
 
         // handle worker responses
-        for response in self.reply_handle.iter() {
-            match response {
-                HashResponse::Success(solution) => {
-                    return Some(HashSolution {
-                        nonce: solution.nonce,
-                        attempts: attempt_count,
-                        hash: solution.hash,
-                    });
-                }
-                HashResponse::Miss => {
-                    attempt_count += 1;
-                }
-                HashResponse::NoSolution => {
-                    completed_workers += 1;
-                    if completed_workers == self.workers.len() as u8 {
-                        return None;
+        let computation_result = std::thread::spawn(move || {
+            let start_time = Instant::now();
+            for response in self.reply_handle.iter() {
+                match response {
+                    HashResponse::Success(solution) => {
+                        for progress_bar in &progress_bars {
+                            progress_bar.finish_and_clear();
+                        }
+                        return Some(HashSolution {
+                            nonce: solution.nonce,
+                            attempts: attempt_count,
+                            hash: solution.hash,
+                        });
                     }
-                }
-                HashResponse::ProgressMessageTick => {
-                    // print debug info
-                    let elapsed = start_time.elapsed();
-                    let hash_rate = attempt_count as f64 / elapsed.as_secs() as f64;
-                    progress_bars[0].println(format!("Hash Rate: {:.1}kh/s", hash_rate / 1000.0));
-                    for progress_bar in &progress_bars {
-                        console.clear_line().unwrap();
-                        progress_bar.set_position(attempt_count);
-                        if !first_run {
-                            console.move_cursor_down(1).unwrap();
+                    HashResponse::Miss => {
+                        attempt_count += 1;
+                    }
+                    HashResponse::NoSolution => {
+                        completed_workers += 1;
+                        if completed_workers == self.workers.len() as u8 {
+                            for progress_bar in &progress_bars {
+                                progress_bar.finish_and_clear();
+                            }
+                            return None;
                         }
                     }
-                    first_run = false;
-                    console.move_cursor_up(4).unwrap();
-                    if attempt_count < expected_attempts {
-                        // do we need to do something?
-                    } else if attempt_count < p90_attempts {
-                        progress_bars[0]
-                            .finish_with_message("Complete with average expected attempts");
-                    } else if attempt_count < p99_attempts {
-                        progress_bars[1].finish_with_message("Complete with p90 expected attempts");
-                    } else {
-                        progress_bars[2].finish_with_message("Complete with p99 expected attempts");
+                    HashResponse::ProgressMessageTick => {
+                        // print debug info
+                        let elapsed = start_time.elapsed();
+                        let hash_rate = attempt_count as f64 / elapsed.as_secs() as f64;
+
+                        progress_bars[3].set_message(&format!(
+                            "Elapsed Time: {}, Hash Rate: {:.1}kh/s",
+                            HumanDuration(elapsed),
+                            hash_rate / 1000.0
+                        ));
+                        for progress_bar in &progress_bars {
+                            progress_bar.set_position(attempt_count);
+                        }
+                        if attempt_count < expected_attempts {
+                            // do we need to do something?
+                        } else if attempt_count < p90_attempts {
+                            progress_bars[0].finish_and_clear();
+                        } else if attempt_count < p99_attempts {
+                            progress_bars[1].finish_and_clear();
+                        } else {
+                            progress_bars[2].finish_and_clear();
+                        }
                     }
                 }
             }
-        }
-        None
+            None
+        });
+        m.join_and_clear().unwrap();
+        computation_result.join().unwrap()
     }
 
     // builds a farm used to test the hashrate of the machine

@@ -211,11 +211,7 @@ fn main() {
                 return;
             }
             let test_hash_farm = HashWorkerFarm::new_test(num_workers);
-            println!(
-                "Running test for {} seconds with {} processes",
-                length, num_workers
-            );
-            println!("{}", test_hash_farm.run_test(length));
+            println!("Hashrate: {} H/s", test_hash_farm.run_test(length));
         }
         ("device", Some(lock_matches)) => {
             match lock_matches.subcommand() {

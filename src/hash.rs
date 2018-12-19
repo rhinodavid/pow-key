@@ -398,6 +398,29 @@ impl HashWorkerFarm {
             });
         }
 
+        let pb = ProgressBar::new(test_length_s);
+        let progress_bar_style = ProgressStyle::default_bar()
+            .template("{spinner:.green} {prefix} [{bar:32.green}] {percent}% ({eta})")
+            .progress_chars("█▉▊▋▌▍▎▏  ");
+        pb.set_style(progress_bar_style);
+        let num_workers = self.workers.len();
+        if num_workers < 2 {
+            pb.set_prefix("Running test with 1 worker process");
+        } else {
+            pb.set_prefix(&format!(
+                "Running test with {} worker processes",
+                num_workers
+            ));
+        }
+
+        let timer_sender_handle = self.response_sender.clone();
+        std::thread::spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            timer_sender_handle
+                .send(HashResponse::ProgressMessageTick)
+                .unwrap_or_else(|_| return);
+        });
+
         for response in self.reply_handle.iter() {
             match response {
                 HashResponse::Success(_) => {
@@ -412,14 +435,13 @@ impl HashWorkerFarm {
                     // we don't want workers to exaust their nonce range
                     unreachable!("A worker completed work in a test farm")
                 }
-                HashResponse::ProgressMessageTick => (), // TODO: add some output while test is running
-            }
-
-            if attempt_count % 10000 == 0 {
-                let elapsed = start_time.elapsed();
-                if elapsed.as_secs() > test_length_s {
-                    let hash_rate = attempt_count as f64 / elapsed.as_secs() as f64;
-                    return hash_rate as u32;
+                HashResponse::ProgressMessageTick => {
+                    let elapsed = start_time.elapsed();
+                    pb.set_position(elapsed.as_secs());
+                    if elapsed.as_secs() > test_length_s {
+                        pb.finish_and_clear();
+                        return (attempt_count as f64 / elapsed.as_secs() as f64) as u32;
+                    }
                 }
             }
         }

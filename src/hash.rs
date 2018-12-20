@@ -20,6 +20,7 @@ pub type Nonce = u64;
 pub trait TNonce {
     fn as_hex_bytes(&self) -> String;
 }
+
 impl TNonce for u64 {
     fn as_hex_bytes(&self) -> String {
         nonce_to_bytes(*self).to_hex()

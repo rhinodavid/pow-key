@@ -4,7 +4,7 @@ mod net;
 
 use crate::hash::Sha256Hash;
 use crate::net::PowServer;
-use clap::{value_t, App, Arg, SubCommand};
+use clap::{value_t, App, AppSettings, Arg, SubCommand};
 
 fn main() {
     let matches = App::new("POW Key")
@@ -71,7 +71,7 @@ fn main() {
                     .default_value("1")))
             .subcommand(SubCommand::with_name("device")
                 .about("interacts with a POW lock over the network")
-                .setting(clap::AppSettings::SubcommandRequiredElseHelp)
+                .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
                     SubCommand::with_name("open")
                         .about("opens an unlocked lock")

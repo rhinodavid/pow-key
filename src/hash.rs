@@ -240,7 +240,7 @@ impl HashWorkerFarm {
 
         // progress bar
         let progress_bar_style = ProgressStyle::default_bar()
-            .template("{spinner:.green} {prefix} [{bar:40.cyan/blue}] {percent}% ({eta})")
+            .template("{spinner:.green} {prefix} [{bar:40.green}] {percent}% ({eta})")
             .progress_chars("█▉▊▋▌▍▎▏  ");
 
         let m = MultiProgress::new();
@@ -271,9 +271,11 @@ impl HashWorkerFarm {
                 progress_bars[i].tick(); // randomizes the position of the spinner
             }
         }
-        progress_bars[3].set_style(progress_bar_style.clone().template(
-            "{spinner:.green} {prefix} [{bar:40.cyan/blue}] {percent}% ({eta})\n{wide_msg}",
-        ));
+        progress_bars[3].set_style(
+            progress_bar_style.clone().template(
+                "{spinner:.green} {prefix} [{bar:40.green}] {percent}% ({eta})\n{wide_msg}",
+            ),
+        );
 
         // run workers
         for i in 0..self.workers.len() {

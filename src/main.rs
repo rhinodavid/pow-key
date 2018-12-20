@@ -1,12 +1,10 @@
+mod cli;
 mod hash;
 mod net;
 
-use self::hash::HashWorkerFarm;
-use self::hash::Sha256Hash;
-use self::hash::TNonce;
-use self::net::{PowLockError, PowServer};
+use crate::hash::Sha256Hash;
+use crate::net::PowServer;
 use clap::{value_t, App, Arg, SubCommand};
-use std::time::Instant;
 
 fn main() {
     let matches = App::new("POW Key")
@@ -170,27 +168,11 @@ fn main() {
             let base_string = solve_matches
                 .value_of("base string")
                 .expect("Expected a base string");
-            let base = base_string.as_bytes().to_vec();
             let target_hash =
                 value_t!(solve_matches, "target hash", Sha256Hash).expect("Invalid 256 bit hex");
             let num_workers = value_t!(solve_matches, "number of processes", u8)
                 .expect("Invalid number of worker processes");
-            let hash_farm = HashWorkerFarm::new(base, target_hash.clone(), num_workers);
-            let start_time = Instant::now();
-            let result = HashWorkerFarm::solve(Box::from(hash_farm));
-            match result {
-                Some(result) => println!(
-                    "Base string: {},\nSolved with nonce: {},\nAs bytes: {},\nHash: {}\nTarget: {}\nAttempts: {}\nTime (s): {}",
-                    base_string,
-                    result.nonce,
-                    result.nonce.as_hex_bytes(),
-                    result.hash,
-                    target_hash,
-                    result.attempts,
-                    start_time.elapsed().as_secs()
-                ),
-                None => println!("No solution found"),
-            }
+            cli::solve(base_string.to_string(), target_hash, num_workers);
         }
         ("make_target", Some(make_target_matches)) => {
             let duration_string = make_target_matches
@@ -198,114 +180,31 @@ fn main() {
                 .expect("Expected a valid duration string");
             let hash_rate = value_t!(make_target_matches, "hashrate", u64)
                 .expect("Expected a valid integer hashrate");
-            let result = Sha256Hash::target_for_duration(duration_string.to_string(), hash_rate);
-            println!("{}", result);
+            cli::make_target(duration_string.to_string(), hash_rate);
         }
         ("hashrate_test", Some(hashrate_test_matches)) => {
             let num_workers = value_t!(hashrate_test_matches, "number of processes", u8)
                 .expect("Invalid number of worker processes");
             let length =
                 value_t!(hashrate_test_matches, "length", u64).expect("Invalid test time length");
-            if length < 20 {
-                println!("Run the hashrate test for at least 20 seconds");
-                return;
-            }
-            let test_hash_farm = HashWorkerFarm::new_test(num_workers);
-            println!("Hashrate: {} H/s", test_hash_farm.run_test(length));
+            cli::hashrate_test(num_workers, length);
         }
-        ("device", Some(lock_matches)) => {
-            match lock_matches.subcommand() {
-                ("status", Some(status_matches)) => {
-                    let host = value_t!(status_matches, "hostname", String).expect("Invalid host");
-                    let port = value_t!(status_matches, "port", String).expect("Invalid port");
-                    let mut server = PowServer::new(host, port);
-                    match server.get_status() {
-                        Ok(s) => println!("{}", s),
-                        Err(e) => match e {
-                            PowLockError::Connection => println!("Error connecting with lock"),
-                            _ => println!("Unknown error"),
-                        },
-                    }
-                }
+        ("device", Some(device_matches)) => {
+            let host = value_t!(device_matches, "hostname", String).expect("Invalid host");
+            let port = value_t!(device_matches, "port", String).expect("Invalid port");
+            let server = PowServer::new(host, port);
+            match device_matches.subcommand() {
+                ("status", _) => cli::get_status(server),
                 ("unlock", Some(unlock_matches)) => {
-                    let host = value_t!(unlock_matches, "hostname", String).expect("Invalid host");
-                    let port = value_t!(unlock_matches, "port", String).expect("Invalid port");
                     let nonce = value_t!(unlock_matches, "nonce", u64).expect("Invalid nonce");
-                    println!("nonce: {}", nonce);
-                    hash::nonce_to_bytes(nonce);
-
-                    let mut server = PowServer::new(host, port);
-                    match server.unlock(nonce) {
-                        Ok(()) => println!("Unlocked"),
-                        Err(e) => match e {
-                            PowLockError::Unsuccessful => println!(
-                                "Unsuccessful. Hash of base and nonce not less than target."
-                            ),
-                            _ => println!("Unknown error"),
-                        },
-                    }
+                    cli::unlock(server, nonce);
                 }
-                ("open", Some(open_matches)) => {
-                    let host = value_t!(open_matches, "hostname", String).expect("Invalid host");
-                    let port = value_t!(open_matches, "port", String).expect("Invalid port");
-                    let mut server = PowServer::new(host, port);
-                    match server.open() {
-                        Ok(_) => println!("Lock opened"),
-                        Err(e) => match e {
-                            PowLockError::InvalidOperationWhenLocked => {
-                                println!("Lock is locked; cannot open")
-                            }
-                            _ => println!("Unknown error"),
-                        },
-                    }
-                }
-                ("base", Some(base_matches)) => {
-                    let host = value_t!(base_matches, "hostname", String).expect("Invalid host");
-                    let port = value_t!(base_matches, "port", String).expect("Invalid port");
-                    let mut server = PowServer::new(host, port);
-                    match server.get_base() {
-                        Ok(b) => println!("{}", b),
-                        Err(e) => match e {
-                            PowLockError::InvalidOperationWhenUnlocked => {
-                                println!("Lock is unlocked; there is no base")
-                            }
-                            _ => println!("Unknown error"),
-                        },
-                    }
-                }
-                ("target", Some(target_matches)) => {
-                    let host = value_t!(target_matches, "hostname", String).expect("Invalid host");
-                    let port = value_t!(target_matches, "port", String).expect("Invalid port");
-                    let mut server = PowServer::new(host, port);
-                    match server.get_target() {
-                        Ok(b) => println!("{}", b),
-                        Err(e) => match e {
-                            PowLockError::InvalidOperationWhenUnlocked => {
-                                println!("Lock is unlocked; there is no target")
-                            }
-                            _ => println!("Unknown error"),
-                        },
-                    }
-                }
+                ("open", _) => cli::open(server),
+                ("base", _) => cli::base(server),
+                ("target", _) => cli::target(server),
                 ("lock", Some(lock_matches)) => {
-                    let host = value_t!(lock_matches, "hostname", String).expect("Invalid host");
-                    let port = value_t!(lock_matches, "port", String).expect("Invalid port");
                     let target = value_t!(lock_matches, "target", String).expect("Invalid port");
-                    if target.len() != 64 {
-                        println!(
-                            "Targets must be a 64 character hex string representing a SHA 256 hash"
-                        );
-                    }
-                    let mut server = PowServer::new(host, port);
-                    match server.lock(target) {
-                        Ok(b) => println!("Locked. Base string is:\n{}", b),
-                        Err(e) => match e {
-                            PowLockError::InvalidOperationWhenLocked => {
-                                println!("Lock is already locked; cannot lock it again")
-                            }
-                            _ => println!("Unknown error"),
-                        },
-                    }
+                    cli::lock(server, target);
                 }
                 ("", None) => println!("No subcommand was used, try \"help\""),
                 _ => unreachable!(), // Assuming you've listed all direct children above, this is unreachable

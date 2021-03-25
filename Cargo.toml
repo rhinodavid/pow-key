@@ -1,13 +1,13 @@
 [package]
 name = "pow_key"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["David Walsh"]
 edition = "2018"
 
 [dependencies]
 byteorder = "1.2.7"
 bytes = "0.4.10"
-clap = "~2.32"
+clap = "2.33.3"
 humantime = "1.1.1"
 indicatif = "0.10.1"
 rand = "0.6.1"
